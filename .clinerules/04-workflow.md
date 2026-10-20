@@ -52,17 +52,32 @@ $t = $t -replace "`r`n","`n"; $t = $t -replace "`n","`r`n"
 
 ```powershell
 $exe = 'D:\02-Apps\AutoHotkey\v2\AutoHotkey64.exe'
-$src = 'd:\03-PersonalFiles\02-GitHubFiles\SevenNote-AutoHotKey\src\SevenWork.ahk'
-$L   = Get-Content -LiteralPath $src -Encoding UTF8
-$tmp = "$env:TEMP\SevenWorkDev\_syn_check.ahk"
-New-Item -ItemType Directory -Force -Path (Split-Path $tmp) | Out-Null
-Set-Content -LiteralPath $tmp -Value (@('#Requires AutoHotkey v2.0','ExitApp()') + $L[1..($L.Count-1)]) -Encoding UTF8
-& $exe /ErrorStdOut $tmp
-"退出码 = $LASTEXITCODE"     # 0 = 通过
+$src = 'd:\03-PersonalFiles\02-GitHubFiles\SevenWork-AutoHotKey\src\SevenWork.ahk'
+$dir = 'd:\03-PersonalFiles\02-GitHubFiles\SevenWork-AutoHotKey\src'   # 预检脚本必须与主脚本同目录，否则相对 #Include 找不到
+$L   = [System.IO.File]::ReadAllLines($src)
+$tmp = "$dir\_syn_check.ahk"
+$out = @('#Requires AutoHotkey v2.0','ExitApp()') + $L[1..($L.Count-1)]
+[System.IO.File]::WriteAllText($tmp, (($out -join "`r`n") + "`r`n"), [System.Text.UTF8Encoding]::new($false))
+$se  = "$env:TEMP\SevenWorkDev\_syn_err.txt"
+New-Item -ItemType Directory -Force -Path (Split-Path $se) | Out-Null
+$r   = Start-Process -FilePath $exe -ArgumentList @('/ErrorStdOut', "`"$tmp`"") `
+         -RedirectStandardError $se -Wait -PassThru
+"退出码 = $($r.ExitCode)"     # 0 = 通过
+Get-Content $se               # 空 = 没有语法错误
+Remove-Item $tmp -Force
 ```
 
-**实测基准**：`src\SevenWork.ahk` 退出码 `0`；故意写坏的赋值语句退出码 `2`，
-并打印 `(3) : Invalid assignment`。
+> ⚠ **别用 `& $exe ...` 判断退出码 —— 它是 GUI 子系统程序，PowerShell 的调用运算符不等它。**
+> `$LASTEXITCODE` 会保持上一次的值（通常是 `0`），看起来「一切通过」，实际脚本可能压根没跑。
+> 实测：最小脚本（`FileAppend` + `ExitApp`）用 `&` 跑，连输出文件都没生成，退出码照样 `0`；
+> 换成 `Start-Process -Wait -PassThru` 才拿到真实的 `ExitCode`。
+> **每次都要用坏样本反向验证一次**（见下），否则无法区分「真通过」和「根本没跑」。
+
+**实测基准**：`src\SevenWork.ahk` 退出码 `0`、stderr 空；
+坏样本用**未闭合字符串**（`x := "abc`）→ 退出码 `2`、stderr 打 `(2) : ==> Missing """`。
+
+> ⚠ **坏样本别用行尾 `x :=`** —— AHK v2 支持行尾运算符续行，`x :=` 与下一行会被拼成
+> `x := ExitApp()`，语法完全合法、退出码 `0`，白白浪费一轮排查（2026-10-21 实测踩到）。
 
 > ⚠ **但它有盲区，别只靠它。** 实测踩到：往 `ThemeService.Themes` 数组追加主题时漏了元素间
 > 的逗号，这个预检**退出码照样是 `0`**，而真机启动立刻报
@@ -78,7 +93,7 @@ Set-Content -LiteralPath $tmp -Value (@('#Requires AutoHotkey v2.0','ExitApp()')
 
 ```powershell
 $exe = 'D:\02-Apps\AutoHotkey\v2\AutoHotkey64.exe'
-$script = 'd:\03-PersonalFiles\02-GitHubFiles\SevenNote-AutoHotKey\SevenWork.ahk'   # 根启动器；会 #Include src\SevenWork.ahk
+$script = 'd:\03-PersonalFiles\02-GitHubFiles\SevenWork-AutoHotKey\SevenWork.ahk'   # 根启动器；会 #Include src\SevenWork.ahk
 $se = "$env:TEMP\SevenWorkDev\_run_err.txt"
 Remove-Item $se -Force -ErrorAction SilentlyContinue
 Start-Process -FilePath $exe -ArgumentList @('/ErrorStdOut', "`"$script`"") `
