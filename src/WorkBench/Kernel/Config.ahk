@@ -7,25 +7,29 @@ class Config {
     static Version := "2.8"
 
     ; ⚠ 配置目录与 pandoc 目录**故意不同**，不是笔误：
-    ;   · _config.ini 是使用者状态（主题 / 字体 / Vault 路径），按版本隔离 ——
-    ;     开发版走 SevenWork-Dev，发布版走 SevenWork，升级时不会互相覆盖配置。
+    ;   · _config.ini 是使用者状态（主题 / 字体 / Vault 路径），按身份隔离 ——
+    ;     开发版走 SevenWork-Dev，运行版走 SevenWork，切换时不会互相覆盖配置。
     ;   · pandoc.exe 是 100+MB 的内嵌可执行文件，跨版本共用一份，不随配置目录搬家。
     ; ⚠ 用 `=>` 简写属性：A_IsCompiled 在取值时才求值，源码运行与编译版各走各的目录。
-    static AppDataDir => A_IsCompiled
-        ? A_AppData . "\SevenWork"
-        : A_AppData . "\SevenWork-Dev"
+    ;
+    ; ═══ 【运行版分支专用】源码运行也走 SevenWork ═══
+    ; 与 main 的区别就在这一处：main 上源码运行走 SevenWork-Dev（开发配置，
+    ; Vault 指测试库），本分支用于「拿真实笔记正常使用几天」，所以配置、日志
+    ; 都与编译版同目录，读的正是旧单文件版留下的那份 _config.ini。
+    ; 两分支靠这一处差异隔离 —— **切分支即切身份**，互不污染；
+    ; 把本改动合回 main 会让开发版直接读写生产配置，合并时务必只挑需要的提交。
+    static AppDataDir => A_AppData . "\SevenWork"
     static ConfigPath => this.AppDataDir . "\_config.ini"
     static PandocPath := A_AppData . "\SevenWork\pandoc.exe"
 
-    ; 报错日志落点：**开发版写项目根的 .logs\**，翻起来不用到处找；
-    ; 编译版仍回 AppData —— exe 可能在桌面 / U 盘 / Program Files，那里
+    ; 报错日志落点：本分支是**使用态**，日志跟随配置落 AppData；
+    ; main 上的开发版才写项目根 `.logs\`（翻起来不用到处找）。
+    ; 编译版历来落 AppData —— exe 可能在桌面 / U 盘 / Program Files，那里
     ; 要么往用户目录里扔文件，要么根本没写权限。
     ; ⚠ 用 `=>` 简写属性而不是 `:=`：A_IsCompiled / A_ScriptDir 在取值时才求值，
     ;   不在类加载期赌内置变量是否已就绪。
     ; ⚠ 这两个身份别塞进上面的声明里 —— 它们依赖运行时内置变量。
-    static LogDir => A_IsCompiled
-        ? A_AppData . "\SevenWork"
-        : A_ScriptDir . "\.logs"
+    static LogDir => this.AppDataDir
     static LogPath => this.LogDir . "\_error.log"
 
     static GetVault() {
