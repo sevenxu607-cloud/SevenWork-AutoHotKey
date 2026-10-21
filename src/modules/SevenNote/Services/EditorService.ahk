@@ -11,6 +11,18 @@ class EditorService {
     static SEPARATOR_MAX := 320
     static INDENT_STR := "    "
 
+    ; ─── 「脱节」判定的容差（像素）───（v2.8.1）
+    ; 实测（150% DPI / 16pt 楷体 / 40 行）：
+    ;   · 用 EM_SETSCROLLPOS 显式滚到 5 个位置 → nPos / nTrack / py 完全相等（diff 恒 0）；
+    ;   · **打字后光标自动滚动**时 py 与 nPos 会差 4~24px —— RichEdit 只把光标滚进视口，
+    ;     SCROLLINFO 还没跟上；行高 36px，所以正常偏差最大接近一行。
+    ; 原来的阈值是 2px → 「任何一次字数变短」都被判成脱节：输入法每上屏一次就重排一次，
+    ;   在带背景图的主题上表现为「视口跳到一片空白、只剩光标那一行」，随后又被下一次
+    ;   重绘拉回来（用户 2026-10-21 报的现象）。
+    ; 真 drift 实测 164 / 182 / 341px（删 4~5 行空行），取 64px（≈两行高）：
+    ;   正常偏差留足余量，真 drift 一个不漏。
+    static SYNC_TOL := 64
+
     static NormalizeNL(s) {
         s := StrReplace(s, "`r`n", "`n")
         s := StrReplace(s, "`r", "`n")
@@ -68,6 +80,22 @@ class EditorService {
         SendMessage(0x00B1, min, max, hwnd)
     }
 
+    ; 编辑区当前是否处于输入法组合态（拼音尚未上屏）。（v2.8.1）
+    ; 组合串是 RichEdit 里的临时文本，WM_GETTEXTLENGTH 会把它算进长度 ——
+    ; 于是「敲字母 / 退字母 / 上屏」都会让 StatFeature 看到字数在变。
+    ; 这期间行布局还没定型，任何重排都可能把视口弹走，一律等它上屏再说。
+    ; ⚠ 上屏那一瞬间组合串已经为空（这里会返回 false），所以它不是唯一防线 ——
+    ;   真正兜底的是 SYNC_TOL 与「不满一屏」这两道守卫。
+    static IsComposing(hwnd) {
+        hIMC := DllCall("imm32\ImmGetContext", "ptr", hwnd, "ptr")
+        if !hIMC
+            return false
+        n := DllCall("imm32\ImmGetCompositionStringW", "ptr", hIMC, "uint", 0x0008
+            , "ptr", 0, "uint", 0, "int")      ; GCS_COMPSTR
+        DllCall("imm32\ImmReleaseContext", "ptr", hwnd, "ptr", hIMC)
+        return (n > 0)
+    }
+
     ; ─── 内容变短后，把 RichEdit 的内部滚动位置对齐回 SCROLLINFO ───（v2.4.4）
     ; 现象（用户报的「删掉末尾几行空行，画面不跟着变，拖一下滚动条才一次性闪回」）：
     ;   · 删除后 SCROLLINFO 已经重算对了 —— nMax / nPos 都是新值，滚动条滑块当场变长；
@@ -89,6 +117,9 @@ class EditorService {
     ;   无条件写回虽然实测不重绘，但**用户正拖滚动条时会把它弹回去**，
     ;   表现就是「滑条经常拖不动」——必须靠这道守卫挡掉。
     static SyncScrollAfterShrink(hwnd) {
+        ; ⓘ v2.8.1：IME 组合期间不动手 —— 见 IsComposing 的注释
+        if this.IsComposing(hwnd)
+            return
         si := Buffer(28, 0)
         NumPut("uint", 28, si, 0)        ; cbSize
         NumPut("uint", 0x17, si, 4)      ; SIF_RANGE | SIF_PAGE | SIF_POS | SIF_TRACKPOS
@@ -98,6 +129,11 @@ class EditorService {
         nmax := NumGet(si, 12, "int")
         npage := NumGet(si, 16, "int")
         ntrack := NumGet(si, 24, "int")   ; SIF_TRACKPOS
+
+        ; ⓘ v2.8.1：内容不满一屏 —— 根本没有滚动位置可修，写回只会把视口弹走。
+        ;   小笔记（十来行、一屏放得下）里的「字数变少」全属这一类。
+        if (nmax <= npage)
+            return
 
         ; ⓪ 用户正在拖滑块时一律不动手 —— nTrackPos 与 nPos 分离就说明拖动中，
         ;   此时写回会把他弹回去，表现成「滑条拖不动」。静止态两者恒等
@@ -110,8 +146,8 @@ class EditorService {
         cur := Buffer(8, 0)
         DllCall("SendMessageW", "ptr", hwnd, "uint", 0x04DD, "uptr", 0, "ptr", cur, "ptr")   ; EM_GETSCROLLPOS
         py := NumGet(cur, 4, "int")
-        if (Abs(py - npos) <= 2)
-            return      ; 已同步 —— 别打扰用户正常的滚动/编辑
+        if (Abs(py - npos) <= this.SYNC_TOL)
+            return      ; 已同步 —— 别打扰用户正常的滚动/编辑（阈值见类顶 SYNC_TOL）
 
         ; ② 删除后 nPos 可能比 max-page 多 1（实测 502 对 501）。钳到上界之后，
         ;    结果与「拖一下滚动条」逐像素一致（DIFF 0.0374 -> 0.0000）。
