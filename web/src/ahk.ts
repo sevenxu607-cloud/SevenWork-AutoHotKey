@@ -387,6 +387,38 @@ export function toStoredMarkdown(md: string): string {
   //   只认**独占一行**的 `***`（行内 `***粗斜体***` 不碰）；转成 `---` 后仍会被
   //   Milkdown 解析成 hr —— 序列化保证块之间有空行，不会变成 setext 标题。
   out = out.replace(/^[ \t]*\*{3,}[ \t]*$/gm, '---')
+
+  // ⚠ 空段落：Milkdown 把「只有一个硬换行的段落」序列化成独占一行的 `<br />`。
+  //   Markdown 里段落之间本来就靠空行分隔，空段落没有语义 —— 留着它会让同一篇
+  //   笔记里「有的空行是空行、有的是 HTML 换行」，观感不一致（用户报的「编辑过
+  //   与未编辑的地方不一样」）。整行删掉，并把连续空行压成一个。
+  // ⚠ 围栏代码块里的空行**必须原样保留**（缩进代码里的空行也是内容），所以逐行
+  //   扫、跟踪 ``` / ~~~ 状态；行内硬换行（`文字<br />文字`）不在行首行尾，也不碰。
+  const lines = out.split('\n')
+  const kept: string[] = []
+  let inFence = false
+  let blanks = 0
+  for (const line of lines) {
+    if (/^\s*(```|~~~)/.test(line)) {
+      inFence = !inFence
+      kept.push(line)
+      blanks = 0
+      continue
+    }
+    if (!inFence) {
+      if (/^\s*<br\s*\/?>\s*$/i.test(line)) continue
+      if (line.trim() === '') {
+        blanks += 1
+        if (blanks > 1) continue
+        kept.push('')
+        continue
+      }
+    }
+    blanks = 0
+    kept.push(line)
+  }
+  out = kept.join('\n')
+
   return out
 }
 
