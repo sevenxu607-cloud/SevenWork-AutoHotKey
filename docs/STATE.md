@@ -91,6 +91,9 @@
   （真机：`probe-status` → 2.5s 后空；切日期显示「已切换到 2026-10-24 周六」）
 - **前端防缓存**：`WebWindow._Mount` 给 URL 加 `_=<tick>` —— WebView2 会缓存
   `app.local` 的 index.html / index.css，构建后不改 URL 可能一直加载旧产物。
+- **字体档位缩到 4 款**：`FontService.Fonts` 删掉仿宋 / 微软雅黑 / 黑体（用户 2026-10-23），
+  只剩楷体 / 华文行楷 / 华文新魏 / 方正舒体。删的是**末尾三项**，1–4 的下标不变，
+  当前字体不会被顶掉。（真机：`count=4`，循环 1→2→3→4→1）
 - **回归**：`tools\run-tests.ps1` 71 条断言全绿；AHK 语法预检通过（含坏样本反向验证，
   退出码 2）；真机启动 6 秒 stderr 空、`_error.log` 无新增；`check-docs.ps1` 通过。
 

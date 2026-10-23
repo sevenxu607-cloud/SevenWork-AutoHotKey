@@ -217,7 +217,7 @@ export function applyTheme(t: Theme): void {
     // ⚠ 字号必须原样按 pt 写：旧版 RichEdit 是 14pt，若换成 px（≈18.7px）再叠上
     //   不同字体的字面差，观感就会「字变大」—— 这正是 Markdown 化之后用户报
     //   「编辑区字体太大」的根因，别在这里再换一次单位。
-    // ⚠ 字体名可能带空格（华文行楷 / 微软雅黑），必须加引号。
+    // ⚠ 字体名可能带空格（华文行楷 / 华文新魏），必须加引号。
     if (t.font) r.setProperty('--sw-ed-font', `"${t.font}", KaiTi, "楷体", serif`)
     if (t.fontSize) r.setProperty('--sw-ed-size', `${t.fontSize}pt`)
 
