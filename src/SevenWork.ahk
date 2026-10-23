@@ -90,8 +90,8 @@ Persistent()
 #Include WorkBench\Capabilities\Shell\ExplorerProbe.ahk
 ; PandocRunner：用 pandoc 把一个文件转成另一个格式（单文件、通用）。
 ; pandoc 路径由调用方传入 —— 它不读 Config，与 ExplorerProbe 同一条规矩。
-; ⚠ 与 SevenNote 的 PandocService 并存，不是漏改：那份是笔记保存链路专用
-;   （RTF + 图片搬 _assets + 可用性缓存），改它要动「每次 Alt+Z 都跑」的路径。
+; ⚠ 笔记模块曾有一份专用的 PandocService（RTF → Markdown）。v2.9 起笔记保存不再经过
+;   pandoc，那份已随 EditorService 一起删除 —— 现在全项目只有这一处 pandoc 调用点。
 #Include WorkBench\Capabilities\Document\PandocRunner.ahk
 ; DocxHeadingFix：把 .docx 里的自定义标题样式名（「三级标题」「半括号标题（五级）」等）
 ; 规范成 pandoc 认得的 `heading N` —— 不然整篇会被当成嵌套有序列表、一个标题都出不来。
@@ -123,20 +123,16 @@ Persistent()
 ; 字号：仍属笔记模块（只影响 RichEdit，而编辑区已交给 WebView2 —— 见 FontService 头注释）
 #Include modules\SevenNote\Services\FontService.ahk
 
-
-#Include modules\SevenNote\Services\EditorService.ahk
-
-
+; （EditorService 已删除：编辑区交给 WebView2 后 State.GetEd() 恒为 0，本类零调用点。
+;   其中的 IsEmptyNote / EmptyNoteHeader 早已迁到 NoteStoreService。）
 #Include modules\SevenNote\Services\NoteStoreService.ahk
 
 ; 笔记会话：当前日期 / 实际路径 / 是否已载入，以及 Open / Save 两个动作。
 ; Feature 之间「先存盘再切走」从此不用互相调用 —— 都问它要结果。
 #Include modules\SevenNote\Services\NoteSessionService.ahk
 
-
-#Include modules\SevenNote\Services\PandocService.ahk
-
-
+; （PandocService 已删除：笔记保存直接写 .md，不再需要 RTF → Markdown；
+;   通用的整文件转换走平台能力 PandocRunner。）
 ; 粘贴图片落盘（WebView2 → base64 → _assets/<date>/）—— 必须在 NoteStoreService 之后
 #Include modules\SevenNote\Services\NoteImageService.ahk
 
