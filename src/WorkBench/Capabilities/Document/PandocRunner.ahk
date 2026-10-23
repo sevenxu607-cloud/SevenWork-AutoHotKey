@@ -24,7 +24,7 @@
 ;   那份是笔记保存链路专用（RTF 输入 + 图片搬到 _assets + 可用性缓存 + 后处理），
 ;   改它要动「每次 Alt+Z 都跑」的路径，风险与收益不成比例。本类只做通用单文件转换。
 ;
-; ⚠ 能力层契约见 docs/CAPABILITIES.md：本文件不出现 Config. / State. / EventBus. / LogError( 的调用。
+; ⚠ 能力层契约见 .clinerules/02-architecture.md：本文件不出现 Config. / State. / EventBus. / LogError( 的调用。
 ; ⚠ 反斜杠在 AHK 字符串里不是转义符（只有反引号是）。
 
 class PandocRunner {

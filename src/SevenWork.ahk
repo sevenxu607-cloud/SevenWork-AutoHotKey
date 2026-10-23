@@ -16,14 +16,10 @@ Persistent()
 
 ; ═══════════════════════════════════════════════════════════════════════════
 ; ═══════════════════════════════════════════════════════════════════════════
-;  SevenWork —— v2.8
-;  本地单文件速记工具。RichEdit 富文本编辑 + 双 RTF 存储 + Markdown 输出。
+;  SevenWork —— v2.14
+;  Windows 本地工作台：WebView2 里的 Milkdown 编辑器 + 若干日常小工具。
 ;  ⚠ 版本号以 Config.Version 为准（显示在 Alt+S 面板底部），改这里要一并改它。
-;  【版本摘要】只留最近三版；完整历史见 docs/CHANGELOG.md，判断与取舍见 docs/DEVLOG.md。
-;    v2.8    Alt+M 把资源管理器里选中的文件转 Markdown（挂 explorer 上下文，
-;            不抢别的程序的 Alt+M）；新增能力 PandocRunner / DocxHeadingFix
-;    v2.7    Folders 模块（Alt+1/2/3）+ Alt+S 升级成工作台面板（侧栏 + 内容区）
-;    v2.6    Text 模块：提示词库 Alt+P；热键上下文改由模块 GetContexts() 报
+;  历史与取舍见 docs/HISTORY.md，开发经验见 docs/EXPERIENCE.md。
 ;
 ;  【用户旅程编号】组合根启动区与各模块 GetHotkeys / Feature 头部都用这套编号标注归属 ——
 ;    ① 唤起与关闭    Alt+Z 呼出 / 隐藏
@@ -42,12 +38,12 @@ Persistent()
 ;    帮助 / 设置面板在 WebPanelUI（WebView2），其余实现分居 WorkBench/ 与 modules/<模块>/。
 ;
 ;  【核心技术决策】
-;    1. EM_STREAMOUT/EM_STREAMIN 直读直写 RTF；Pandoc 转 RTF → Markdown（软依赖）
-;    2. 双 RTF 输出（936 + 65001）；空笔记不落盘；先查后存
-;    3. 标签写进文件名；assets 统一收纳到 _assets/日期/
+;    1. 编辑区是 WebView2 里的 Milkdown，笔记直接读写 .md，没有中间格式
+;    2. 保存走「同目录临时文件 → 写完替换」；未改动不写盘；空笔记不落盘
+;    3. 标签写进文件名；图片统一收进 _assets/日期/，正文写相对路径
 ;    4. 伴生窗口适配走 Launcher.* / SevenNote.Move 事件（见 docs/LAUNCHER-GUIDE.md）
-;    5. 背景图主题只是 Themes 数组里的普通成员，没有全局开关（见 docs/THEME-IMAGES.md）
-;    6. 编辑区滚动条与标题栏跟着主题明暗走
+;    5. Pandoc 只服务 Alt+M 的格式转换，笔记保存链路不经过它
+;    6. 主题分两层：色板在 WorkBench\Services\ThemeService，调节入口在 modules\Theme
 ;
 ;  【已知坑点】单一事实源在 .clinerules/03-ahk-v2.md，这里只留最要命的三条：
 ;    · 内置函数名 / 类名不能做变量名（Clear / log / Gui …），变量名写长最省事

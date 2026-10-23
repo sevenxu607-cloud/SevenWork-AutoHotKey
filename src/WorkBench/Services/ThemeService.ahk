@@ -23,7 +23,7 @@
 ;  老用户当前的主题），并且前一条结尾补 `},` —— 漏逗号报 Unexpected "{"，
 ;  方案 A 的预检查不出来。
 ;  带图的主题 bg / bgAlpha 必须成对（bgFit 可选，cover / contain）；
-;  完整烘焙配方见 docs/THEME-IMAGES.md。
+;  完整烘焙配方见 docs/EXPERIENCE.md 第 9 节。
 class ThemeService {
     ; ⚠ 主题表只剩**琉璃·极光霜**一套。纯米黄（flat 基线）在 v2.10 彻底下线：
     ;   整套 UI 只走材质设计，留着一条 flat 路径等于留一条「永远没人回归的岔路」。
@@ -32,7 +32,7 @@ class ThemeService {
     ;
     ;   要再加主题**只追加到末尾**，别插到前面：ThemeIndex 存的是下标。
     ;   条目的字段：win / edBg / text / dim 四个基色，其余由 Palette() 派生；
-    ;   带图的再补 bg + bgAlpha（成对，bgFit 可选）—— 配方见 docs/THEME-IMAGES.md。
+    ;   带图的再补 bg + bgAlpha（成对，bgFit 可选）—— 配方见 docs/EXPERIENCE.md 第 9 节。
     static Themes := [
         ; 琉璃：纯代码主题，**故意不带 bg** —— 观感全部由前端 glass.css 的材质层做
         ; （光雾 / 霜 / 冰面 / 冰棱 / specular 都在 WebView2 里），AHK 只负责底色、

@@ -16,7 +16,7 @@
 ;   · `w.HWND` 与 `w.Document.Folder.Self.Path` 均可读（本例 hwnd=263866
 ;     path=`D:\00-SevenFiles\Documents`）；
 ;   · `wins.Count` / `wins.Item(i)` 同样可用（本类用前者之外的遍历方式，只为少一个索引）。
-; ⚠ 能力层契约见 docs/CAPABILITIES.md：本文件不出现 Config. / State. / EventBus. / LogError( 的调用。
+; ⚠ 能力层契约见 .clinerules/02-architecture.md：本文件不出现 Config. / State. / EventBus. / LogError( 的调用。
 ; ⚠ 反斜杠在 AHK 字符串里不是转义符（只有反引号是）：下面写的 "\" 就是一个反斜杠。
 
 class ExplorerProbe {

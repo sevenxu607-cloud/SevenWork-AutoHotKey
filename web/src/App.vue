@@ -134,7 +134,7 @@ function onKeydown(e: KeyboardEvent) {
   }
   // Tab / Shift+Tab：列表内改层级，段落内增删行首四空格
   // ⚠ 从前这里只认 Tab、不看 shiftKey —— Shift+Tab 也走进来插了四个空格，
-  //   等于「反缩进」这个功能根本不存在（PROJECT-OVERVIEW 里却写着有）。
+  //   等于「反缩进」这个功能根本不存在（旧文档里曾写着有）。
   if (!e.ctrlKey && !e.altKey && e.key === 'Tab') {
     e.preventDefault()
     if (e.shiftKey) el.outdent()

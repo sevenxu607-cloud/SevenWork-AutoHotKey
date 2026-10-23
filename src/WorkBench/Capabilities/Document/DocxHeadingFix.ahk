@@ -14,7 +14,7 @@
 ; 做法：**不改源文件**。复制一份到临时目录 → 改 word/styles.xml 里那几行 w:name →
 ;   重新打包 → 交给 pandoc。源文件零风险；本能力失败时调用方直接转原件。
 ;
-; 只收路径与目录，不读 Config、不发事件、不写日志（能力层契约见 docs/CAPABILITIES.md）。
+; 只收路径与目录，不读 Config、不发事件、不写日志（能力层契约见 .clinerules/02-architecture.md）。
 ;
 ; ⚠ 为什么用 tar.exe 而不是 AHK 自带能力：AHK v2 没有 zip 支持。Windows 10 1803+
 ;   自带 bsdtar（C:\Windows\System32\tar.exe，实测 3.8.8），`-xf` 解 docx、
