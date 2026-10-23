@@ -28,6 +28,11 @@ class NoteSessionService {
     static GetPath() => this._docPath
     static IsLoaded() => this._docLoaded
 
+    ; 文件被改名之后由调用方告知新路径。
+    ; ⚠ 不同步的话，下次保存会按**旧路径**再写出一份 —— 同一天出现两个文件，
+    ;   而用户在 Obsidian 里看到的是改名后那个，刚改的内容却进了旧名那个。
+    static SetPath(path) => this._docPath := path
+
     static Reset() {
         this._docDate := ""
         this._docPath := ""
@@ -149,7 +154,7 @@ class NoteSessionService {
         ;   语义等价，但「打开看一眼历史笔记」不该改写它的文件。
         if FileExist(mdPath) {
             try {
-                if (FileRead(mdPath, "UTF-8") = md)
+                if (FileRead(mdPath, "UTF-8") == md)
                     return {ok: true, path: mdPath, unchanged: true}
             }
         }

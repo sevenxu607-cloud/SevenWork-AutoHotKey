@@ -229,6 +229,14 @@ class WindowFeature {
     ; ─── 收起：先广播、再记位置、最后隐藏 ───
     static Hide() {
         g := State.GetGui()
+        ; ⚠ 先存盘、存住了才收：收起等于「这次的改动先放着」，而保存失败时窗口一藏，
+        ;   用户连状态栏那行提示都看不见，下次打开还是旧内容。
+        ;   recoverable = 当前没有可丢的内容（冷启动 / 页面还没挂），那种放行。
+        saved := NoteSessionService.Save()
+        if !saved.ok && !(saved.HasProp("recoverable") && saved.recoverable)
+            return false
+
+        ; 通知「即将收起」—— 保存已在上面做完，订阅者不用再存一次
         EventBus.Emit("Window.BeforeHide")
         ; ⚠ 必须显式传 hwnd：WebHostService 是多实例的（面板 / 提示词库 / 笔记窗各一份），
         ;   无参会落到「最近挂载的窗口」—— 收了笔记窗却把面板的入场状态复位掉，

@@ -7,6 +7,11 @@
 class WorkBench {
     static _initialized := false
 
+    ; 「上一次保存成功了吗」—— 退出热键据此决定走不走。
+    ; ⚠ EventBus.Emit 没有返回值，所以用结果标志接：NoteSessionService 成功时发
+    ;   Save.Completed，失败只发 Note.Status（带 err）。两者都没来 = 没人处理 = 不退出。
+    static _saveOk := false
+
     static Init() {
         if this._initialized
             return
@@ -32,6 +37,13 @@ class WorkBench {
         ; Phase 3b：先挂上 Launcher.Opened / SevenNote.WindowReady 的监听。
         PeerCoordinator.Init()
         WebPanelUI.Init()
+
+        ; 只认成功信号（空笔记 / 无改动也算成功）
+        EventBus.On("Save.Completed", (*) => WorkBench._OnSaved())
+    }
+
+    static _OnSaved() {
+        WorkBench._saveOk := true
     }
 
     ; ─── 平台级热键：工作台面板 + 主题 + 保存退出 ───
@@ -46,8 +58,22 @@ class WorkBench {
             {ctx: "global", key: "!t", group: "外观", line: "   Alt+T            循环切换界面主题"
                 , fn: (*) => ThemeService.Next()},
             {ctx: "global", key: "!+z", group: "平台", line: "   Alt+Shift+Z      保存并退出"
-                , fn: (*) => (EventBus.Emit("Save.Requested"), ExitApp())}
+                , fn: (*) => WorkBench.SaveAndExit()}
         ]
+    }
+
+    ; ─── 保存并退出 ───
+    ; ⚠ 保存失败**不退**：退出等于放弃这次改动，而用户看不到任何提示。
+    ;   平台不直接调 SevenNote 的 SaveFeature（反向依赖），只发事件 + 看结果标志。
+    static SaveAndExit() {
+        this._saveOk := false
+        EventBus.Emit("Save.Requested")
+        if this._saveOk
+            ExitApp()
+
+        ; 走到这里 = 没存上。留在原地，把原因摆到鼠标旁（窗口收起时状态栏看不见）
+        try ToolTip("保存失败，已取消退出`n详情见 %AppData%\SevenWork\_error.log")
+        SetTimer(() => ToolTip(), -3500)
     }
 
     static GetMetadata() {

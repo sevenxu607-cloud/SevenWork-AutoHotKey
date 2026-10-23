@@ -6,8 +6,9 @@
 
 class SaveFeature {
     static Init() {
-        EventBus.On("Window.BeforeHide", (*) => SaveFeature.Save())
-        ; 别的 Feature 需要「先把当前这篇落盘」时发这个事件 —— Feature 之间不互相调用
+        ; ⚠ 不再订阅 `Window.BeforeHide`：保存已经提前到 `WindowFeature.Hide()` 的第一步，
+        ;   在那里**存不住就不收起**。再挂一个订阅只会把同一篇存两遍，
+        ;   第二次的结果还会把状态栏刚写的「已保存」冲成「无改动」。
         EventBus.On("Save.Requested", (*) => SaveFeature.Save())
     }
 

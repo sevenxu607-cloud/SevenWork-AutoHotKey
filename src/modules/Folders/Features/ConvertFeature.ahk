@@ -62,8 +62,14 @@ class ConvertFeature {
         total := r.done.Length + r.skipped.Length + r.failed.Length
 
         if (total = 1) {
-            if r.done.Length
-                return "已转换：" . this._Name(r.done[1])
+            if r.done.Length {
+                msg := "已转换：" . this._Name(r.done[1])
+                ; 「没能完全还原」不能在这一支里丢掉 —— 单个文件时用户只看到这一句，
+                ; 吞掉警告等于告诉他「完全正常」
+                if r.warnings.Length
+                    msg .= "`n有 " . r.warnings.Length . " 处未能完全还原（详见 _error.log）"
+                return msg
+            }
             if r.skipped.Length
                 return this._SkipText(r.skipped[1].reason)
             if r.failed.Length

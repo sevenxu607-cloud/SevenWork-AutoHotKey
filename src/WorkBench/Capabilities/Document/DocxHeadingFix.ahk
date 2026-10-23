@@ -81,20 +81,28 @@ class DocxHeadingFix {
             ;   而「半括号标题（五级）」这类名字一旦先被改成 `heading 5`，
             ;   LevelOf() 就认不出来（它把标准名当「无需处理」返回 0），
             ;   这些标题的编号会静默漏掉。所以先固化编号，再删样式编号，最后改样式名。
-            numbered := this._FixNumbers(workDir, xml, warnings)
+            fix := this._FixNumbers(workDir, xml, warnings)
+            numbered := fix.count
 
             ; 编号已写进文字，样式上的 numPr 必须去掉 —— 否则 pandoc 仍把标题当
             ; 有序列表（实测：不删的结果是整篇「1. NLP导论 / 1. 定义」，零标题）。
-            strip := DocxNumberFix.StripStyleNumbering(xml)
-            if (strip.stripped > 0)
-                xml := strip.xml
+            ; ⚠ 但**固化失败时不能删**：编号没进文字，再删掉 numPr 等于把
+            ;   「有编号的标题」变成「没编号的标题」，比原样交给 pandoc 丢得更多。
+            stripped := 0
+            if !fix.failed {
+                strip := DocxNumberFix.StripStyleNumbering(xml)
+                if (strip.stripped > 0) {
+                    xml := strip.xml
+                    stripped := strip.stripped
+                }
+            }
 
             fixed := this.FixStyles(xml)
-            if (fixed.count > 0 || strip.stripped > 0) {
+            if (fixed.count > 0 || stripped > 0) {
                 f := FileOpen(stylesPath, "w", "UTF-8-RAW")
                 f.Write(fixed.xml)
                 f.Close()
-                changedStyles := fixed.count + strip.stripped
+                changedStyles := fixed.count + stripped
             }
         } catch as e
             ; detail 带出真实异常 —— 只给 reason 的话，一句 no-styles 完全看不出
@@ -132,17 +140,22 @@ class DocxHeadingFix {
     ;   要求「变量引用」，而数组本身已经是引用 —— 实测传数组会抛
     ;   `Parameter #3 ... requires a variable reference, but received an Array`，
     ;   异常又被外层 try 吞成一句 no-styles，排查时完全看不出是哪一步坏的。
+    ; 返回 {count, failed}
+    ;   count  = 实际写入编号的标题段落数
+    ;   failed = true 表示固化出错（此时 count 必为 0）；调用方据此**不要**清样式编号
     static _FixNumbers(workDir, stylesXml, warnings) {
         docPath := workDir . "\word\document.xml"
         numPath := workDir . "\word\numbering.xml"
         if !FileExist(docPath) || !FileExist(numPath)
-            return 0
+            return {count: 0, failed: false}
         try {
             docXml := FileRead(docPath, "UTF-8")
             numXml := FileRead(numPath, "UTF-8")
             r := DocxNumberFix.FixDocument(docXml, stylesXml, numXml)
-            if !r.ok
-                return 0
+            if !r.ok {
+                warnings.Push("编号固化未能启动：" . (r.HasProp("reason") ? r.reason : "?"))
+                return {count: 0, failed: true}
+            }
             if (r.numbered > 0) {
                 f := FileOpen(docPath, "w", "UTF-8-RAW")
                 f.Write(r.xml)
@@ -152,10 +165,10 @@ class DocxHeadingFix {
                 if !this._HasText(warnings, w)
                     warnings.Push(w)
             }
-            return r.numbered
+            return {count: r.numbered, failed: false}
         } catch as e {
             warnings.Push("编号固化失败：" . e.Message)
-            return 0
+            return {count: 0, failed: true}
         }
     }
 

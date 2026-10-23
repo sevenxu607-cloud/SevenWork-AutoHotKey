@@ -71,6 +71,9 @@ class TitleFeature {
             return
         }
         if NoteStoreService.RenameWithTag(date, oldTag, newTag) {
+            ; 改名会让磁盘文件名变掉 —— 会话里的路径必须跟着走，
+            ; 否则下一次保存会按旧路径重新写出一份（同一天出现两个文件）
+            NoteSessionService.SetPath(NoteStoreService.FindMd(date))
             EventBus.Emit("Title.Changed"
                 , {date: date, tag: newTag})
         } else {
