@@ -12,9 +12,9 @@
 | --- | --- | --- |
 | 这是什么、值得用吗 | [`../README.md`](../README.md) | 指针 |
 | 现在做到哪、还欠什么 | [`PROJECT-OVERVIEW.md`](PROJECT-OVERVIEW.md) | 指针 |
-| 这个效果靠什么技术 | [`PROJECT-IMPLEMENTATION.md`](PROJECT-IMPLEMENTATION.md) | 指针 |
+| 这个效果靠什么技术 | 当前看 [`PROJECT-OVERVIEW.md`](PROJECT-OVERVIEW.md) 的「架构」节 | 指针 |
 | 平台能力收什么、不许做什么 | [`CAPABILITIES.md`](CAPABILITIES.md) | 指针 |
-| 重构往哪走、模块怎么归属 | [`WORKBENCH-PLAN.md`](WORKBENCH-PLAN.md) | 指针（进度看 DEVLOG） |
+| 重构往哪走、模块怎么归属 | [`../.clinerules/02-architecture.md`](../.clinerules/02-architecture.md) | 指针 |
 | vX.Y 改了什么 | [`CHANGELOG.md`](CHANGELOG.md) | 指针 |
 | 为什么这么选、放弃过什么 | [`DEVLOG.md`](DEVLOG.md) | 指针 |
 | 背景图主题怎么烘 | [`THEME-IMAGES.md`](THEME-IMAGES.md) | 指针 |

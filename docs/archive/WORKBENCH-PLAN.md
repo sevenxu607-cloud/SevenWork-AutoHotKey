@@ -2,7 +2,7 @@
 
 > 状态：设计定稿，Phase 2 / 3a / 3b / 4 / 5 / 5b / 6 已完成（待人工验收）
 > ⚠ 本文的数字类陈述（Service / Feature 计数、目录树）是**当时的快照**，不随代码更新；
-> 当前规模看 [`PROJECT-OVERVIEW.md`](PROJECT-OVERVIEW.md)，接口契约看 [`CAPABILITIES.md`](CAPABILITIES.md)。
+> 当前规模看 [`../PROJECT-OVERVIEW.md`](../PROJECT-OVERVIEW.md)，接口契约看 [`../CAPABILITIES.md`](../CAPABILITIES.md)。
 > 最后更新：2026-10-19
 > 目录现状：运行代码已统一收进 `src/`，根 `SevenWork.ahk` 只是启动器；
 > 本文 Phase 0–5 记录里的 `WorkBench/`、`modules/` 路径是当时原貌，当前路径加 `src/` 前缀。

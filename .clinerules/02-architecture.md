@@ -20,6 +20,7 @@
 │  · 冻结，只加不改                                    │
 └─────────────────────────────────────────────────────┘
 
+; ⚠ 上图的项数（Feature 21 / Service 8）是 v2.8 快照；当前规模见 docs/PROJECT-OVERVIEW.md
 依赖方向：
   Feature / Module → Service → Kernel → OS
   Feature / Module → Capability → OS
@@ -55,7 +56,9 @@ Kernel 唯一的「回头出口」是**注入**：`EventBus` 不认识 `LogError
 ## 改动原则
 
 1. **不动 Kernel；业务规则只加 Feature，纯平台能力只加 Capability。**
-2. Feature 之间**零调用**，一律通过 `EventBus.Emit` 通信。
+2. **跨模块**零调用，一律通过 `EventBus.Emit`。**同模块内**的兄弟 Feature 可以直接调
+   （现有先例：`PromptEditFeature → PromptWindowFeature`、`ConvertFeature → FolderWindowFeature`）
+   —— 它们共享模块生命周期，绕事件只会多一层转发；跨模块则必须走事件。
 3. 可插拔：删除任一 Feature 不得影响其他 Feature。
 4. 依赖方向**严禁反向**（Kernel 不许调 Service，Service 不许调 Feature，
    Capability 不许调 modules / EventBus / 业务 Config / State）。

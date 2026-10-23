@@ -1,15 +1,15 @@
 # SevenWork
 
-**Lightweight daily scratchpad for Windows (AHK v2)** — RichEdit editing, dual RTF storage,
-Pandoc → Markdown, Obsidian inbox. One hotkey, auto-save, image support, date tags.
+**Lightweight daily notes for Windows (AHK v2)** — a Milkdown editor in WebView2 that reads and
+writes plain Markdown straight into your Obsidian vault. One hotkey, auto-save, images, date tags.
 
-> 一键唤起的 Windows 本地速记工具 —— 富文本编辑 + 双 RTF 存储 + Markdown 输出
-> 为 Obsidian 收件箱场景设计，走到哪记到哪，图文并茂、无感保存、标签管理
+> 一键唤起的 Windows 本地速记工具 —— 编辑器直接读写 Markdown，不再经过中间格式
+> 为 Obsidian 收件箱场景设计，走到哪记到哪；图文混排、无感保存、标签写在文件名里
 >
 > 🗺️ **不知道从哪读起？** 看 [`docs/README.md`](./docs/README.md) —— 文档地图（哪份文档管什么、多久更新一次）
 > 📄 **只想快速了解？** 看 [`docs/PROJECT-OVERVIEW.md`](./docs/PROJECT-OVERVIEW.md) —— 一页纸全景（定位 / 规模 / 欠账 / 限制）
-> 🔧 **想看技术实现？** 看 [`docs/PROJECT-IMPLEMENTATION.md`](./docs/PROJECT-IMPLEMENTATION.md) —— 15 个技术块（RichEdit / GDI / Dwm / Launcher 契约…）
-> 🧭 **想看工作台化路线？** 看 [`docs/WORKBENCH-PLAN.md`](./docs/WORKBENCH-PLAN.md) —— 三张归属表 + Phase 0–6
+> 🔧 **想改代码？** 看 [`docs/PROJECT-OVERVIEW.md`](./docs/PROJECT-OVERVIEW.md) 的「架构」节 +
+> [`.clinerules/`](./.clinerules/) —— 分层约定、踩坑表、验证流程
 > 📋 **版本历史** [`docs/CHANGELOG.md`](./docs/CHANGELOG.md) ｜ 🗓 **决策日志** [`docs/DEVLOG.md`](./docs/DEVLOG.md)
 > 🎨 **主题出图** [`docs/THEME-IMAGES.md`](./docs/THEME-IMAGES.md) ｜ 🪟 **外部窗口适配** [`docs/LAUNCHER-GUIDE.md`](./docs/LAUNCHER-GUIDE.md)
 
@@ -56,44 +56,48 @@ Pandoc → Markdown, Obsidian inbox. One hotkey, auto-save, image support, date 
 
 | 你的需求 | SevenWork 的做法 |
 | --- | --- |
-| **秒级唤起** | 全局热键 `Alt+Z`，100ms 内呼出/隐藏，不打断工作流 |
-| **富文本编辑** | 基于 RichEdit：加粗、颜色、字体、内嵌图片，一个不少 |
-| **图片随手粘** | `Ctrl+V` 直接粘图，自动存 PNG，自动生成 Markdown 链接 |
-| **能一眼找到** | 每天一个标签，写在文件名里：`2026-09-20-机器学习.md` |
-| **和 Obsidian 无缝** | 自动生成 `.md` + `_assets/日期/` 图片目录，Obsidian 直接读 |
-| **不丢数据** | 定时 / 隐藏 / 切日期 / 粘贴 自动保存，空笔记不落盘 |
-| **轻量不打扰** | 单 EXE ~250MB（含 Pandoc），运行内存 ~10MB，纯 Windows 原生 |
+| **按下就出** | 全局热键 `Alt+Z` 呼出 / 隐藏，不打断工作流 |
+| **Markdown 编辑** | Milkdown 所见即所得：标题 / 列表 / 引用 / 代码 / 表格 / 图片，落盘就是 `.md` |
+| **图片随手粘** | `Ctrl+V` 直接粘图，自动存到 `_assets/日期/`，正文写成相对路径 |
+| **能一眼找到** | 标签写在文件名里：`2026-09-20-机器学习.md` |
+| **和 Obsidian 无缝** | 写的就是 Obsidian 读的那份 `.md`，中间不需要转换 |
+| **不丢数据** | 定时 / 隐藏 / 切日期 自动保存，空笔记不落盘，写入走临时文件替换 |
+| **轻量不打扰** | 常驻后台按需唤出，笔记与配置都是普通文件，随时能用别的工具打开 |
 
 ---
 
 ## 🎯 核心特性
 
-### 🪶 极致轻量
+### 🪶 轻量常驻
 
-- **启动 < 100ms**：双击即用，不拖累系统
-- **内存 ~10MB**：常驻后台无感
-- **单文件分发**：`SevenWork.exe` 一个文件，无需安装
-- **零依赖运行**：EXE 版内置 Pandoc，用户无需装任何东西
+- **按下就出**：常驻后台，全局热键直接唤出，不用先找窗口
+- **单文件发行**：`SevenWork.exe` 一个文件，无需安装
+- **运行时依赖两样**：源码版要 AutoHotkey v2；界面要 WebView2 Runtime
+  （Win11 自带，Win10 多数已随 Edge 装好）
+- ⚠ **不再写「~10MB 内存 / <100ms 启动」** —— 编辑区换成 Chromium 之后这两个数
+  需要重新实测才敢写；目前没有测。
 
-### 📝 富文本编辑
+### 📝 Markdown 编辑
 
-- 加粗、斜体、颜色、字体大小，随时切换
-- **`Ctrl+V` 直接粘图**，自动存到 `_assets/日期/`
-- **`Ctrl+Shift+V` 粘贴纯文本**，剥离外部格式
-- **Tab 缩进不丢字符格式**（很多编辑器做不到这点）
+- 所见即所得（Milkdown）：标题 / 列表 / 引用 / 代码块 / 表格都能直接编辑
+- **`Ctrl+V` 直接粘图**，自动存到 `_assets/日期/`，正文里写成相对路径
+- **`Tab` / `Shift+Tab`**：列表内升降层级，段落内增删行首空格
+- 落盘就是标准 Markdown —— 用 VS Code / Obsidian 打开看到的是同一份东西
 
-### 💾 双格式归档
+### 💾 直接写 Markdown
 
-保存时同时输出两种格式，各取所需：
+没有中间格式，保存就是写 `.md`：
 
 ```
-936 RTF（GBK）   → WPS / Word / 写字板 打开都正常
-65001 RTF（UTF-8） → 给 Pandoc 转 Markdown
-最终产物：
-  .rtf  富文本母版（保真）
-  .md   Markdown 译本（便携）
-  _assets/日期/  图片附件
+你的Vault/
+├── 2026-09-20.md               每天的笔记
+├── 2026-09-20-机器学习.md       带标签的版本（标签在文件名里）
+└── _assets/2026-09-20/         当天粘贴的图片
 ```
+
+- 写入走「同目录临时文件 → 写完再替换」，中途断电不会留下半个文件；
+- 内容没变就一个字节都不写（打开看一眼不会改动历史笔记）；
+- 空笔记不落盘，Vault 里不会攒一堆只有日期头的空文件。
 
 ### 🏷️ 标签系统
 
@@ -129,34 +133,15 @@ Pandoc → Markdown, Obsidian inbox. One hotkey, auto-save, image support, date 
 - 背景图主题的完整配方（按 0.917 裁 → 只滚降亮部 → 配色从图里取）与实测账都留在
   [`docs/THEME-IMAGES.md`](docs/THEME-IMAGES.md)
 
-### 🖼 背景图主题（暂缓接入）
+### 🖼 背景图主题（暂缓）
 
-**背景图不是全局开关，而是主题表里带 `bg` 的那种普通条目** —— 切过去就铺图，切走自动撤掉。
-这套机制（`BackdropService` / `BackdropFeature`）代码还在、可用，只是主题表里目前没有带图的条目。
+主题条目可以带 `bg` / `bgAlpha` 铺一张背景图，机制（`BackdropService`）代码仍在，但
+**当前主题表里没有带图的条目**，这条路暂停待打磨。要接回来照
+[`docs/THEME-IMAGES.md`](docs/THEME-IMAGES.md) —— 那张配方（先按 0.917 裁、只压亮部、配色从图里取）
+仍然有效，`tools\pick-theme-colors.ps1` 可一键取色。
 
-- 三条硬规矩在 [`docs/THEME-IMAGES.md`](docs/THEME-IMAGES.md)：① **等比铺满**（cover，只裁不压，
-  竖图靠烘焙时先按 0.917 裁好，而不是运行时 `contain` 缩进中间）；② **暗图配亮字**（不是偏好，
-  是 WCAG 量出来的）；③ **绝不为配深字去整体提亮暗图** —— 那是把原图洗白，提亮不等于清晰
-- 标题栏**整块取主题色**：`win` 的加权亮度 < 128 就开 immersive dark mode（Win10 只有这一档），
-  Win11 上再进一步 —— 用 `DWMWA_CAPTION_COLOR / TEXT_COLOR / BORDER_COLOR`(35/36/34) 把标题栏
-  底色染成 `win`、标题文字染成 `text`、外框同 `win`。实测标题栏像素精确等于 `#0B1624`，
-  和窗框连成一体
-- **编辑区滚动条也跟着主题**：滚动条画在**非客户区**、由系统主题上色，深色主题下原来会留一条
-  亮白竖条压在暗底上（浅色主题下则相反）。`UiPaint.WindowTheme` 把编辑区窗口主题
-  设成 `DarkMode_Explorer` / `Explorer` 即随主题明暗 —— 实测滚动条区域的像素均亮度 **40**
-  （编辑区 75，同档暗）、**亮像素 0 个**
-- **上下滑动时不再频闪**：主窗口开了 `WS_EX_COMPOSITED`（`+E0x02000000`）离屏双缓冲 ——
-  编辑区 RichEdit 自身不带双缓冲，滚动时会先擦一遍客户区再画文字，那一帧空档正是「滑动时
-  略微频闪」的来源；合成重绘后父子控件的绘制顺序由系统统一保证
-- 改窗口大小、切主题、开搜索栏都会按编辑区的新位置重新铺图
-- 图片缺失时自动降级为纯色底（`edBg`），文字照样读得清
-
-想再加一套**别的图**当主题（极光、雪原……）？见
-[开发指南 → 添加带背景图的主题](#添加带背景图的主题)，配 `tools\pick-theme-colors.ps1` 一键取色。
-
-**换图 / 调浓淡**都改**主题自己**：`src\WorkBench\Services\ThemeService.ahk` 里 `Themes` 那一条的
-`bg`（图路径）与 `bgAlpha`（遮罩不透明度 0-100；遮罩色取该主题 `edBg`，暗主题压暗、亮主题加白纱）。
-不设全局开关 —— 多套图主题才能各调各的（换图后**重启程序**才生效，位图有缓存）。
+- 标题栏**整块取主题色**（与背景图无关，一直在用）：`win` 亮度 < 128 就开 immersive dark mode，
+  Win11 上再按 `win` / `text` 染标题栏与外框 —— 这是 `UiPaint.TitleBar` 干的活
 
 ### ⌨️ 输入增强
 
@@ -236,14 +221,14 @@ Pandoc → Markdown, Obsidian inbox. One hotkey, auto-save, image support, date 
 | `SevenWork.ahk` | 根目录启动器：把入口转给 `src\`，并保持 `A_ScriptDir` 指向项目根 |
 | `src\SevenWork.ahk` | 组合根：装配 + 启动 |
 | `src\WorkBench\` | 平台层：Kernel / 热键路由 / 模块登记 / WebView2 窗口骨架（`WebWindow`）/ 工作台面板（`WebPanelUI` + `PanelHostBridge`）/ 伙伴协调 |
-| `src\modules\SevenNote\` | 笔记模块：6 个 Service + `StatusBar` + 18 个 Feature + 模块生命周期 |
+| `src\modules\SevenNote\` | 笔记模块：编辑器宿主 + 保存 / 自动保存 / 日期跳转 / 标签 / 窗口生命周期 |
 | `src\modules\Launcher\` | 外部程序模块：`PeerLayoutService` + PowerShell / DeepSeek Feature + 模块生命周期 |
 | `src\modules\KeysInput\` | 键位模块：`CapsLockFeature` + 模块生命周期 + `Alt+Shift+C` |
 | `src\modules\Text\` | 文本模块：提示词库（`Alt+P`）—— 2 个 Feature + `PromptStoreService` + 模块生命周期 |
 | `src\modules\Folders\` | 文件夹模块：`Alt+1/2/3` 三个槽位（不建自己的窗口，只驱动资源管理器）+ `Alt+M` 选中文件转 Markdown |
 | `tools\` | 开发辅助脚本，如 `pick-theme-colors.ps1` 从壁纸取主题配色 |
 | `docs\screenshots\` | README 配图 |
-| `docs\` | 项目文档：`DEVLOG.md`（开发日志）、`PROJECT-OVERVIEW.md`（一页纸全景）、`PROJECT-IMPLEMENTATION.md`（技术清单）、`WORKBENCH-PLAN.md`（工作台化路线） |
+| `docs\` | 项目文档：`DEVLOG.md`（决策日志）、`PROJECT-OVERVIEW.md`（一页纸全景）、`CAPABILITIES.md`（能力契约）、`archive\`（历史快照） |
 | `.clinerules\` | 架构约定与踩坑记录（`05-theme-image.md` 是「看图生成主题」的配方 + 偏好） |
 
 ---
@@ -278,30 +263,23 @@ Pandoc → Markdown, Obsidian inbox. One hotkey, auto-save, image support, date 
 > `Alt+M` 只在资源管理器是**前台窗口**时生效 —— 它在 Excel / Word 里有自己的用途，
 > 全局注册会把人家按菜单的那一下抢走。
 
-### 编辑器内热键（窗口激活时）
+### 编辑器内热键（笔记窗口激活时）
 
-| 热键 | 功能 |
-| --- | --- |
-| `Ctrl+S` | 手动保存 |
-| `Ctrl+Z / Ctrl+Shift+Z` | 撤销 / 重做 |
-| `Ctrl+Y` | 删除当前行 |
-| `Ctrl+D` | 复制当前行到下方 |
-| `Ctrl+Shift+↑ / ↓` | 上移 / 下移当前行 |
-| `Tab / Shift+Tab` | 增加 / 减少缩进（不丢格式） |
-| `Ctrl+Shift+V` | 粘贴为纯文本 |
-| `Ctrl+T` | 手动追加时间戳（v2.4 起不再自动加） |
-| `Ctrl+H` | 插入按编辑区宽度动态生成的分隔线 |
-| `Ctrl+Shift+H` | 插入 `## 分段` 标题 |
-| `Ctrl+F` | 打开搜索栏 |
-| `Ctrl+G` | 搜索跳转（日期 / 标签） |
-| `Ctrl+Shift+T` | 为当前日期设置标签 |
+| 热键 | 功能 | 谁处理 |
+| --- | --- | --- |
+| `Ctrl+S` | 手动保存 | AHK |
+| `Ctrl+G` | 跳转到某个日期 / 标签 | AHK |
+| `Ctrl+Shift+T` | 为当前日期设置标签 | AHK |
+| `Ctrl+T` | 插入时间戳 `🕐 HH:mm` | 页面 |
+| `Ctrl+H` | 插入分隔线 | 页面 |
+| `Ctrl+Shift+H` | 插入 `## 分段` 标题 | 页面 |
+| `Tab` / `Shift+Tab` | 列表内升降层级 / 段落内增删行首空格 | 页面 |
+| `Ctrl+Z` / `Ctrl+Shift+Z` | 撤销 / 重做 | Milkdown |
+| `Ctrl+V` | 粘图（自动落盘到 `_assets/日期/`） | 页面 |
 
-### 搜索栏内
-
-| 热键 | 功能 |
-| --- | --- |
-| `Enter / Shift+Enter` | 下一个 / 上一个匹配 |
-| `Esc` | 关闭搜索栏 |
+> ⚠ **`Ctrl+Y` / `Ctrl+D` / `Ctrl+Shift+↑↓` / `Ctrl+Shift+V` / `Ctrl+F` 已经没有了**。
+> 编辑区换成 Milkdown 之后，这批「对着 RichEdit 发消息」的操作整体删除（v2.9 一次砍掉
+> 11 条编辑热键），文内搜索也在同一批里下线 —— 要全文搜索请用 Obsidian 或 VS Code。
 
 ### 提示词库内（`Alt+P` 呼出后）
 
@@ -333,16 +311,13 @@ Pandoc → Markdown, Obsidian inbox. One hotkey, auto-save, image support, date 
 
 ```
 你的Vault/
-├── 2026-09-20.rtf                富文本母版
-├── 2026-09-20.md                 Markdown 译本
-├── 2026-09-20-机器学习.rtf        带标签的富文本
-├── 2026-09-20-机器学习.md         带标签的 Markdown
+├── 2026-09-20.md                 每天的笔记
+├── 2026-09-20-机器学习.md         带标签的版本（标签在文件名里）
 ├── _assets/                      ★ 图片统一收纳
 │   ├── 2026-09-20/
 │   │   └── image1.png
 │   └── 2026-09-19/
 │       └── image2.png
-├── _tmp/                         pandoc 临时目录（自动清理）
 └── _prompts/                     ★ 提示词库（Alt+P 呼出）
     ├── Chat/                     目录名 = 分类
     │   └── 角色设定.md           文件名 = 标题，文件全文 = 正文
@@ -383,10 +358,9 @@ C:\Users\<用户名>\AppData\Roaming\SevenWork\
 删不删都行 —— **别因为某个键在代码里搜不到就当成"漏接线"**。
 
 ⚠️ **配置在进程内被缓存**（v2.4.2 起）：`ConfigService.Read` 读一次就记住，之后不再碰磁盘 ——
-`Config.GetVault()` 在单次保存里就要被调 6 次以上（`FindRtf` / `DefaultRtfPath` / `FindMd` /
-`DefaultMdPath` / `TempDir` / `AssetsDir`），每次都读盘不值当。代价是**运行期手改
-`_config.ini` 不会立刻生效，改完请重启程序**（程序自己写配置的路径会同步缓存，
-所以主题 / 字体这类在程序内切换的照旧即改即用）。
+`Config.GetVault()` 在单次保存里会被调多次（`FindMd` / `DefaultMdPath` / `AssetsDir` …
+每次都读盘不值当）。代价是**运行期手改 `_config.ini` 不会立刻生效，改完请重启程序**
+（程序自己写配置的路径会同步缓存，所以主题 / 字体这类在程序内切换的照旧即改即用）。
 
 ### 笔记内容示例
 
@@ -411,39 +385,35 @@ C:\Users\<用户名>\AppData\Roaming\SevenWork\
 
 ### 架构：四层 + 组合根
 
-```
-┌─────────────────────────────────────────────────────┐
-│ FEATURE  功能层（21 项，按用户旅程排列）             │
-│  · Feature 之间零调用，通过 EventBus 通信            │
-│  · 可插拔：删除任一 Feature 不影响其他               │
-├─────────────────────────────────────────────────────┤
-│ SERVICE  服务层（8 项，纯能力）                     │
-│  · 无业务、无时间、无理由                            │
-│  · 被多个 Feature 共用                              │
-├─────────────────────────────────────────────────────┤
-│ KERNEL   骨架层（4 项）                             │
-│  · 生命周期 / 状态 / 事件 / 配置                     │
-│  · 冻结，只加不改                                    │
-├─────────────────────────────────────────────────────┤
-│ 表示层：StatusBar  ·  组合根：装配 + 启动            │
-└─────────────────────────────────────────────────────┘
+| 层 | 干什么 | 硬约束 |
+| --- | --- | --- |
+| FEATURE | 一个用户旅程一个类 | 可插拔：删掉任一 Feature 不影响其他 |
+| SERVICE | 业务策略（可读 Config / State） | 不认识 Feature |
+| KERNEL | 生命周期 / 状态 / 事件 / 配置 | 冻结，只加不改 |
+| CAPABILITY | 纯平台能力（hwnd / 数字 / Rect） | 不读 Config、不发事件、不认识 `modules/*` |
 
-依赖方向：Feature → Service → Kernel → OS（严禁反向）
-```
+依赖方向：`Feature / Module → Service → Kernel → OS`，以及 `Feature / Module → Capability → OS`。
+
+界面是 WebView2 里的一张 Vue 页面（`web/src/`）：笔记编辑器、`Alt+S` 面板、提示词库共用
+同一份前端产物与同一套主题变量。窗口生命周期收在 `WorkBench/WebWindow.ahk`。
 
 ### 三个核心设计决策
 
-**1. 用 `EM_STREAMOUT/EM_STREAMIN` 直读直写 RTF**
+**1. Markdown 是唯一母版**
 
-不碰剪贴板（剪贴板是程序间共享资源，用它做进程内私有通道会引发并发竞争）。所有保存/加载都走 Win32 消息，稳定、无副作用。
+保存就是写 `.md`，不再维护「富文本母版 + 便携译本」两份文件。代价是丢掉了 RTF 能表达的
+字符级格式（字体 / 字号 / 颜色）；换来的是**任何工具都能打开、diff 看得懂、不会双份不同步**。
 
-**2. 用 Pandoc 转换 RTF → Markdown**
+**2. 编辑器放在 WebView2 里**
 
-不自研解析器（原版 150 行自研解析器脆弱，依赖隐式约定）。Pandoc 成熟稳定，图片位置按 RTF 结构精确提取。
+原生 RichEdit 做不出现代排版，也留不住「一个界面、多套窗口」的一致性。整个客户区交给
+Chromium + Milkdown，AHK 只管窗口、热键和文件。代价是多了 WebView2 Runtime 依赖，
+以及「页面就绪」成为异步状态（见 `NoteSessionService.PushMarkdown`）。
 
-**3. 双 RTF 输出（936 + 65001）**
+**3. 通用格式转换交给 Pandoc，不自研解析器**
 
-RichEdit 只输出非标编码，Pandoc/Word 认的标准不同——**三方各有死结**。只能每次保存输出两份 RTF，各给一方。
+`Alt+M` 把整个 docx / pptx / html 等转成 Markdown 时调 pandoc；笔记保存链路**不经过它**
+（直接读写 `.md`，没有可转换的东西）。
 
 ### 代码与数据分离
 
@@ -491,11 +461,12 @@ Pandoc 不可用，走了降级路径。
 - 显示版本号 → pandoc OK，可能是图片是 OLE 对象（从 Word 复制的）→ 改用 `Win+Shift+S` 截图后粘贴
 - 报错 / 找不到 → 装 x64 版 pandoc
 
-### Q4：`.rtf` 文件全篇带下划线
+### Q4：编译出来的 EXE 界面一片空白
 
-**32 位编译**导致的（加载了 32 位 `msftedit.dll`）。
+**用了 32 位 base file**。WebView2 加载器只带了 64 位版本（`src\lib\WebView2\64bit\`），
+32 位进程起不来界面。
 
-**修复**：用 **64 位 Unicode** 重新编译。
+**修复**：用 **Unicode 64-bit** 重新编译。
 
 ### Q5：找不到 Vault 路径
 
@@ -515,9 +486,9 @@ Pandoc 不可用，走了降级路径。
 
 ### Q7：如何备份
 
-**只备份 Vault 目录**（如 `D:\我的笔记\SevenWork\`）——包含所有 `.rtf` / `.md` / `_assets`。
+**只备份 Vault 目录**（如 `D:\我的笔记\SevenWork\`）——包含所有 `.md`、`_assets`、`_prompts`。
 
-配置和内嵌 pandoc 丢了都能重建，不重要。
+`%AppData%\SevenWork\` 里的配置和内嵌 pandoc 丢了都能重建，不重要。
 
 ---
 
@@ -533,17 +504,26 @@ Pandoc 不可用，走了降级路径。
    注册与 `Alt+S` 帮助共用这份数据 —— 写一次，两处同时生效）
 3. 通过 `EventBus.Emit` 通知结果
 
-**示例**：加"导出 HTML"
+**示例**：加「导出当前笔记为 HTML」
 
 ```ahk
 class ExportFeature {
     static ExportHtml() {
-        hwnd := State.GetEd()
-        rtfPath := NoteStoreService.RtfPath(State.GetDate())
-        htmlPath := NoteStoreService.TempDir() . "\export.html"
-        cmd := '"' . Config.PandocPath . '" "' . rtfPath . '" -o "' . htmlPath . '"'
-        RunWait(A_ComSpec . ' /c "' . cmd . '"', , "Hide")
-        Run(htmlPath)
+        ; 正文在编辑器里，取一次即可；取不到（未载入 / 页面没起来）就别导
+        md := NoteSessionService.TakeMarkdown()
+        if (md = "") {
+            EventBus.Emit("Note.Status", {text: "没有可导出的内容", kind: "info"})
+            return
+        }
+        ; pandoc 站在「md → html」这一步上 —— 笔记保存链路本身不经过它
+        dir := NoteStoreService.TempDir()
+        NoteStoreService.EnsureDir(dir)
+        src := dir . "\" . A_Now . ".md"
+        if !NoteStoreService.WriteFile(src, md, "UTF-8")
+            return
+        dst := StrReplace(src, ".md", ".html")
+        PandocRunner.Convert(PandocRunner.ResolveCmd(Config.PandocPath), src, dst)
+        Run(dst)
     }
 }
 ```
@@ -690,12 +670,12 @@ class MyModule {
 
 | 版本 | 日期 | 一句话 |
 | --- | --- | --- |
-| **v2.9** | 2026-10-22 | `Alt+S` 工作台面板搬进 WebView2，与笔记窗共用一套玻璃材质；`WorkBenchUI`（853 行原生控件）退役 |
-| **v2.8** | 2026-10-21 | `Alt+M` 把资源管理器里选中的 docx 转成 Markdown（含自定义标题样式修复） |
+| **v2.14** | 2026-10-22 | 取消「开发身份」：一个工作树、一条分支、一份配置、一处日志 |
+| **v2.13** | 2026-10-22 | 材质去色：整站改成「无色玻璃」，底色抬到中灰 |
+| **v2.9–2.12** | 2026-10-22 | 编辑区与各界面迁入 WebView2（Milkdown / 面板 / 提示词库 / `WebWindow` 骨架） |
+| **v2.8** | 2026-10-21 | `Alt+M` 把选中的 docx 转成 Markdown（含自定义标题样式修复） |
 | **v2.7** | 2026-10-20 | Folders 模块 `Alt+1/2/3` + `Alt+S` 升级为工作台面板 |
-| **v2.6** | 2026-10-20 | 提示词库 `Alt+P`（Text 模块），热键上下文从写死改为表驱动 |
-| **v2.5** | 2026-10-20 | 加模块从「改三处」降到「改两处」，坏模块不带走别人 |
-| **v2.4** | 2026-10-16 | 时间戳改手动、配置进程内缓存、仓库卫生一轮 |
+| **v2.6** | 2026-10-20 | 提示词库 `Alt+P`（Text 模块），热键上下文改由模块声明 |
 
 ---
 
@@ -704,13 +684,14 @@ class MyModule {
 | 限制 | 说明 |
 | --- | --- |
 | 仅 Windows | AHK v2 只支持 Windows |
-| Pandoc 软依赖 | 未装则 MD 无格式、无图片链接（笔记不丢） |
-| 不支持跨日期全文搜索 | 搜索只在当前笔记内 |
+| Pandoc 软依赖 | 只在 `Alt+M` 转文件时用；没装则转不了，笔记本身不受影响 |
+| 无文内 / 跨日期搜索 | v2.9 删掉了文内搜索；要全文检索请用 Obsidian / VS Code |
 | 无云同步 | 用 OneDrive / 坚果云替代 |
 | 标签单字段 | 每个日期一个标签，不支持多标签 |
 | 改配置要重启 | `_config.ini` 在进程内被缓存（v2.4.2 起），运行期手改不生效 |
-| 搜索缓存的脏标记不完美 | 搜索条开着时点回编辑区打字，只有**字数变化**才会重算匹配（等长替换测不出来，罕见边缘） |
-| **第二个伙伴不触发笔记重排** | `_docked` 只认「第一次适配」：一个伙伴已在场时，第二个伙伴呼出后笔记不会重新让位（即便相撞）。详见「设计思考 → 后续可做」第 3 条 |
+| 同日多个文件只认第一个 | 同一天同时存在 `日期.md` 与 `日期-标签.md` 时，跳转按日期找第一个匹配 |
+| 外部修改可能被覆盖 | 没有文件监听；在 Obsidian 里改完再回来保存，以编辑器内容为准 |
+| **第二个伙伴不触发笔记重排** | `_docked` 只认「第一次适配」：一个伙伴已在场时，第二个伙伴呼出后笔记不会重新让位（即便相撞） |
 
 ---
 
@@ -725,4 +706,5 @@ MIT License — 详见 [LICENSE](LICENSE) 文件。
 - [AutoHotkey v2](https://www.autohotkey.com/) — 强大的 Windows 自动化脚本语言
 - [Pandoc](https://pandoc.org/) — 通用文档转换器
 - [Obsidian](https://obsidian.md/) — 本地 Markdown 笔记软件
-- [RichEdit 消息参考（MSDN）](https://learn.microsoft.com/en-us/windows/win32/controls/rich-edit-controls)
+- [Milkdown](https://milkdown.dev/) — Markdown 所见即所得编辑器
+- [WebView2](https://learn.microsoft.com/microsoft-edge/webview2/) — 内嵌 Chromium，界面载体

@@ -1,4 +1,10 @@
-# SevenWork 技术实现清单
+# SevenWork 技术实现清单（历史快照 · RichEdit 时代）
+
+> ⚠ **已归档（2026-10-23）**：本文写于 v2.8，记录的是 **RichEdit + 双 RTF** 那一代的技术实现。
+> 编辑区迁到 WebView2 + Milkdown、保存链路改为纯 Markdown 之后，第 1–5 节的**技术载体已不存在**。
+> **当前架构看** [`../PROJECT-OVERVIEW.md`](../PROJECT-OVERVIEW.md)，能力契约看
+> [`../CAPABILITIES.md`](../CAPABILITIES.md)。原文不改写 —— 里面的**判断**仍有价值（例如
+> 「为什么不自研 Markdown 解析器」「为什么不让剪贴板当进程内通道」），只是不再描述现状。
 
 > **用途**：回答「到底用了什么技术、实现了什么」—— 每条都是「技术手段 → 实现效果」。
 > 功能怎么用看 `../README.md`；项目全景看 `PROJECT-OVERVIEW.md`；人的决策看 `DEVLOG.md`。

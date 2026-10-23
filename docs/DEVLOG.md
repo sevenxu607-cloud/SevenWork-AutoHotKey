@@ -10,24 +10,16 @@
 
 ## 当前状态
 
-- **版本 / 分支**：`2.14`（取消开发身份）；**只有 `main` 一条分支、一个工作树**
+- **版本 / 分支**：`2.14`；**只有 `main` 一条分支、一个工作树**
   （`SevenWork-AutoHotKey`），配置与日志恒在 `%AppData%\SevenWork\`
-- **身份机制已删除**（v2.14）：原靠工作树根 `_dev.flag` 分「开发 / 日用」两套配置，
-  换来两个工作树 + 两条分支 + 两份配置 + 两处日志，而源码本来零差异 —— 管理成本大于收益，
-  `Config.IsDev` / `AppDataDir` 分支 / `LogDir` 分支整套取消
-- **最近一次改动**：**DOCX 转 Markdown 保住标题编号**（2026-10-23 16:05）—— 新增能力
-  `DocxNumberFix`：把 Word 的「第 1 章 / 1.1 / 1）」这类模板编号按原规则算出来写进标题文字，
-  再清掉段落的 `numPr`（不清的话 pandoc 仍当有序列表、零标题）。`Prepare` 顺序固定为
-  「固化编号 → 删样式编号 → 改样式名」。实测 23MB 课件：223 个标题、编号逐级对上，
-  手动取消编号的标题保持无编号，155 张图与相对路径不变，源文件哈希未变。
-  工作树仍未提交
-- **正在处理**：笔记新旧格式与搁置功能 —— 字号调节热键、同日多文件 / 标签重名 /
-  外部修改检测、第一次 `Alt+Z` 仍只出任务栏；README 与 PROJECT-OVERVIEW 的
-  热键表已过期（`Ctrl+F` 已砍、`Tab` 行为已变）。外观模块的分型与逐窗调试**暂停**
+- **最近一次功能提交**：`6b7a081` 外观参数模块、笔记业务闭环与 DOCX 编号保真（2026-10-23）
+- **最近一次改动**：**文档纠偏与归档**（2026-10-23）—— README / PROJECT-OVERVIEW 按
+  「WebView2 + Markdown 直存」重写，RichEdit 时代的描述逐条撤下；技术清单 / 工作台化计划 /
+  主题计划移入 `docs/archive/`。这是**收敛期的第一步**，不是新功能
+- **正在进行**：收敛三批 —— ① 文档纠偏（本轮）② 删死代码 ③ 补数据安全。
+  **外观的分型与逐窗调试暂停**，不再追新视觉
 - **已实测排除**：WebView2 客户区**透不到桌面**、也拿不到模糊（五轮探针，见 22:00 条目）；
-  第 1、2 条（真透明 / 22px 真透明边距）**不做**
-- **下一步**：探「无边框 + 圆角 + DWM 阴影」是否共存 → 做第 3 条；S3 余下三项（编辑窗 / 日期跳转 /
-  启动提示）→ S4 精修；GPU 加速（`will-change` / 图层提升）待评估；F5/Ctrl+R 覆盖演示文本的守卫待修
+  真透明 / 22px 真透明边距**不做**
 
 - **已知未解决**：
   - 50ms 轮询版（`ScrollSyncFeature`）在真机上「运行报错」，原因未定位，已回退
@@ -55,16 +47,24 @@
 - [x] ~~S3b：可写落盘 —— 先 `SaveAs` 副本，再全量核对「差异只有 CRLF→LF 与 `\#`→`#`」~~
   —— 用户否掉副本方案，直接写真实库；脏标记承担「不改就不写」
 - [x] ~~S3b：砍 11 条编辑热键、删 `SearchFeature`~~ —— 实际热键 27 → 7，删 12 个文件
-- [ ] S3c：`Shift+Tab` 反缩进；列表内 `Tab` 改走 `sinkListItem`
-  （`Ctrl+T` / `Ctrl+H` / `Ctrl+Shift+H` / `Tab` 已在前端 keymap 就位）
+- [x] ~~S3c：`Shift+Tab` 反缩进；列表内 `Tab` 改走 `sinkListItem`~~（2026-10-23 已实现：
+  `NoteEditor.vue` 的 `indent()` / `outdent()`；`Ctrl+T` / `Ctrl+H` / `Ctrl+Shift+H` 已在前端 keymap）
 - [x] ~~S3d：`Alt+T` 循环主题~~ —— 主题服务上收到 `WorkBench\Services`，热键归平台
   （2026-10-21 21:20 条目）
 - [ ] S3d 余项：背景图主题**已下线待打磨**（4 条定义只在 git 历史里；`bg` 字段保留，前端尚未消费）
 - [ ] 存量 `.md` 每行的 `**` 包裹要不要清洗
 
+**收敛期（2026-10-23 起：先收干净，再加功能）**
+- [x] ~~文档纠偏：README / PROJECT-OVERVIEW 按现状重写；三份过期专题移入 `docs/archive/`~~
+- [ ] 删死代码：`EditorService`（608 行）+ 笔记 `PandocService`（113 行）
+- [ ] 实验前端退出正式入口：`lab.css`（567 行）+ `GlassLab.vue`（299 行）
+- [ ] 数据安全六条：大小写比较 / 退出看保存结果 / 隐藏看保存结果 / 标签路径同步 /
+      转换警告不吞 / DOCX 编号失败不清 `numPr`
+- [ ] 决定 `BackdropService`（361 行）删还是留 —— 牵涉四份文档的「暂缓接入」承诺
+
 **P1（代码审查遗留）**
-- [ ] `PandocService.Convert` 失败被静默吞掉（`SaveFeature` 丢弃返回值，状态栏仍报「已保存」）
-- [ ] `SaveFeature` 把 `RunWait(pandoc)` 移出 `Critical(1)`；`PandocService` 补 `--markdown-headings=atx`
+- [x] ~~`PandocService.Convert` 失败被静默吞掉~~ · ~~`RunWait(pandoc)` 在 `Critical(1)` 内~~ ——
+  v2.9 起笔记保存不再经过 pandoc，`PandocService` 已是死代码（待删，见上一段）
 - [x] ~~`SearchFeature.Show/Hide` 的 DPI 单位混用~~ —— 整个 Feature 随 S3b 删除，不再修
 
 **人工验收（上下文热键只能手按）**
@@ -80,7 +80,8 @@
   v2.14 起只有一条分支、一个工作树，直接在 `main` 上改
 
 **P2 / P3**
-- [ ] 三篇架构文档（`PROJECT-OVERVIEW` / `PROJECT-IMPLEMENTATION` / `WORKBENCH-PLAN`）停在 v2.4.x
+- [x] ~~三篇架构文档（`PROJECT-OVERVIEW` / `PROJECT-IMPLEMENTATION` / `WORKBENCH-PLAN`）停在 v2.4.x~~
+  —— 2026-10-23：`PROJECT-OVERVIEW` 按现状重写；另两篇移入 `docs/archive/`
 - [ ] 死代码 7 处：`FolderSlotService.GetAll/Describe`、`PromptStoreService.PathFor`、`ModuleRegistry.Unregister`、`ExplorerProbe.IsExplorerWindow`、`PeerCoordinator.GetLastNote/LastPeer`
 - [ ] `Alt+M` 失败提示偏笼统：退出码只进 `_error.log`，ToolTip 只有「转换失败：pandoc 报错」
 - [x] ~~提示词库 / 编辑窗接主题色~~ —— 2026-10-21 23:44 条目（含深色 Edit / ComboBox）

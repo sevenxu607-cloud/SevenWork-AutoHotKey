@@ -3,7 +3,7 @@
 > 从 [`../DEVLOG.md`](../DEVLOG.md) 归档（2026-10-21）。
 > 这一段是「单文件 → 平台分层」的重构：Phase 0–6、能力层上收、运行代码收进 `src/`。
 > 结论已沉淀进 [`.clinerules/02-architecture.md`](../../.clinerules/02-architecture.md) 与
-[`WORKBENCH-PLAN.md`](../WORKBENCH-PLAN.md)；条目里的过程只作追溯用。
+[`WORKBENCH-PLAN.md`](../archive/WORKBENCH-PLAN.md)；条目里的过程只作追溯用。
 
 ### 2026-10-19 23:25　Phase 6：改名 SevenWork 并迁移 AppData
 
