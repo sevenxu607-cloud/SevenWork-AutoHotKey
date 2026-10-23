@@ -48,6 +48,9 @@
   另删图主题遗留的 `tools/rebake-backdrop.ps1`（11.7 KB，零引用）。
 - **实验前端移出生产构建**：`GlassLab.vue` 改异步加载、`lab.css` 随组件走。
   （`npm run build`：`index.css` 49.36 → 40.63 kB，另出 `GlassLab.js/css` 各 8.7 kB）
+- **规则修正：对话档案改为每次会话必写**（原触发条件「用户要求 / 有方向性内容」无判据，
+  被每轮自我豁免；且它是收尾清单里唯一「仓库外、无脚本可检查」的动作）。收尾清单加「先列目录核对」。
+  补写 `2026-10-24-slimming.md`（10-23 之后首次恢复；10-24 上半段原话不在本窗口，已标注不补造）。
 - **回归**：`tsc --noEmit` 退出码 0；AHK 语法预检 0；真机启动 6 秒 stderr 空、
   `_error.log` 无新增；`Alt+Z` 出 `SevenNote`、`Alt+S` 出「SevenWork · 工作台」。
 
