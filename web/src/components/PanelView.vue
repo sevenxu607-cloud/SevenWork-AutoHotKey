@@ -28,6 +28,10 @@ const data = ref<PanelData | null>(null)
 const currentId = ref('')
 /** 当前页设置字段的编辑值：field.key → 值（与 spec.fields 一一对应） */
 const vals = ref<Record<string, string>>({})
+/** 每页各留一份编辑值：id → {key: 值}。
+ *  ⚠ 只有 `vals` 的话，切一次页就把没点保存的改动丢了 —— 而且退出守卫
+ *    再看过去是「干净的」，等于静默丢弃用户的输入。切页保留、退出时全查。 */
+const valsByRow = ref<Record<string, Record<string, string>>>({})
 const status = ref('')
 const statusKind = ref<'dim' | 'ok' | 'err' | 'warn'>('dim')
 const saveText = ref('保存设置')
@@ -92,9 +96,21 @@ const MOCK: PanelData = {
 
 
 /* ── 数据 ───────────────────────────────────────────────────────────── */
-function pickValues(row: PanelRow | null) {
+/**
+ * 切换当前页的编辑值。
+ * reset = true 时按 spec 重建（保存后回读、首屏都走这条）；
+ * 否则沿用这一页上一次的编辑值 —— 切走再切回来不该丢用户敲的字。
+ */
+function pickValues(row: PanelRow | null, reset = false) {
+  const id = row?.id ?? ''
+  const kept = valsByRow.value[id]
+  if (!reset && kept) {
+    vals.value = kept
+    return
+  }
   const out: Record<string, string> = {}
   for (const f of row?.spec?.fields ?? []) out[f.key] = f.value ?? ''
+  valsByRow.value[id] = out
   vals.value = out
 }
 
@@ -138,7 +154,7 @@ async function load(first = false) {
   const want = first ? d.focus : currentId.value
   const hit = d.rows.find((r) => r.id === want)
   currentId.value = (hit ?? d.rows[0])?.id ?? ''
-  pickValues(cur.value)
+  pickValues(cur.value, true)
   saveText.value = '保存设置'
   busy.value = false
   // 首屏数据已落定 → 放行 AHK 的入场（见 ahk.ts 的 markReady 说明）。
@@ -232,11 +248,15 @@ function onKeydown(e: KeyboardEvent) {
      一次跨进程等待就足以让退出卡住。
    ⚠ 只有带 apply 的页才有「保存」语义；热键页没有可改的值，直接算未改。 */
 function hasPending(): boolean {
-  const row = cur.value
-  if (!row?.spec?.hasApply) return false
-  return (row.spec.fields ?? []).some(
-    (f) => (vals.value[f.key] ?? '') !== (f.value ?? ''),
-  )
+  // ⚠ 查**所有页**，不只当前页：改了 A 页、切到 B 页再按退出，
+  //   只看当前页就会判「干净」—— 用户的改动被静默丢掉。
+  for (const row of rows.value) {
+    if (!row.spec?.hasApply) continue
+    const v = valsByRow.value[row.id]
+    if (!v) continue
+    if ((row.spec.fields ?? []).some((f) => (v[f.key] ?? '') !== (f.value ?? ''))) return true
+  }
+  return false
 }
 
 onMounted(async () => {

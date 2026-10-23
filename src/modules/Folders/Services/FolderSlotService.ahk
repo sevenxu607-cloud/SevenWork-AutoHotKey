@@ -42,14 +42,6 @@ class FolderSlotService {
         return {ok: true, path: path}
     }
 
-    ; 全部槽位（数组，下标 1..Count）。面板初始化时用。
-    static GetAll() {
-        out := []
-        loop this.Count
-            out.Push(this.Get(A_Index))
-        return out
-    }
-
     ; ═══ 写 ═══
 
     static Set(slot, path) {
@@ -87,14 +79,4 @@ class FolderSlotService {
 
     ; 热键显示名：槽位 1 → "Alt+1"
     static HotkeyLabel(slot) => "Alt+" . slot
-
-    ; 帮助窗口 / 面板里的一句话描述
-    static Describe(slot) {
-        path := this.Get(slot)
-        if (path = "")
-            return "未设置"
-        if !DirExist(path)
-            return path . "（目录不存在）"
-        return path
-    }
 }

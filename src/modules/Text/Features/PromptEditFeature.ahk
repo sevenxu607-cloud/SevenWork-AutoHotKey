@@ -117,9 +117,11 @@ class PromptEditFeature {
             return false
         b := this._dirtyBase
         try {
-            return this._title.Value != b.title
-                || this._GetCatText() != b.cat
-                || this._body.Value != b.body
+            ; ⚠ 必须用 `!==`（区分大小写）。写成 `!=` 的话，「只把 hello 改成
+            ;   Hello」会被判成没改 —— 退出时不拦，改动就丢了。
+            return this._title.Value !== b.title
+                || this._GetCatText() !== b.cat
+                || this._body.Value !== b.body
         } catch {
             return false
         }

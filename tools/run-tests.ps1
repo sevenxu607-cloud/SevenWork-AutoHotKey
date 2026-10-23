@@ -50,9 +50,37 @@ if (Test-Path -LiteralPath $err) {
 }
 
 Write-Host ''
-if ($p.ExitCode -eq 0) {
+# ---------- web pure-logic tests (node --test) ----------
+# web/src/markdown.ts rewrites note bodies on every save; a silent one-character
+# mistake there corrupts user content. It is plain TypeScript with no imports,
+# so the project's own typescript package can load it without a test framework.
+Write-Host '=== web tests (node --test) ==='
+$node = Get-Command node -ErrorAction SilentlyContinue
+if (-not $node) {
+    Write-Host '  FAIL  node not found - web tests did not run'
+    Write-Host '=== TESTS FAILED (web tests skipped) ==='
+    exit 1
+}
+$webDir = Join-Path $root 'web\tests'
+$webFiles = @(Get-ChildItem -LiteralPath $webDir -Filter *.test.mjs -File -ErrorAction SilentlyContinue)
+if ($webFiles.Count -eq 0) {
+    Write-Host ('  FAIL  no *.test.mjs under ' + $webDir)
+    Write-Host '=== TESTS FAILED (no web tests) ==='
+    exit 1
+}
+$webOut = Join-Path $env:TEMP 'SevenWorkDev\web-tests.txt'
+& $node.Source --test ($webFiles | ForEach-Object { $_.FullName }) *> $webOut
+$webCode = $LASTEXITCODE
+Get-Content -LiteralPath $webOut -Encoding UTF8 | Select-String -Pattern '^(ok|not ok|# (pass|fail))'
+
+Write-Host ''
+if ($p.ExitCode -eq 0 -and $webCode -eq 0) {
     Write-Host '=== TESTS PASSED ==='
     exit 0
 }
-Write-Host ("=== TESTS FAILED (exit " + $p.ExitCode + ") ===")
+if ($p.ExitCode -ne 0) {
+    Write-Host ("=== TESTS FAILED (ahk exit " + $p.ExitCode + ") ===")
+} else {
+    Write-Host ("=== TESTS FAILED (web exit " + $webCode + ") ===")
+}
 exit 1

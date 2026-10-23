@@ -1,10 +1,14 @@
 <script setup lang="ts">
-import { ref, onMounted, watch } from 'vue'
+import { ref, onMounted, watch, defineAsyncComponent } from 'vue'
 import NoteEditor from './components/NoteEditor.vue'
-import GlassLab from './components/GlassLab.vue'
 import PanelView from './components/PanelView.vue'
 import PromptView from './components/PromptView.vue'
 import { isHosted, ahkCall, applyTheme, markReady, type Theme } from './ahk'
+
+/* 材质样板只服务开发验收（`?view=lab`）：异步加载，正式窗口一个字节都不下载。
+   ⚠ 连它那份 lab.css 也随组件走（见 GlassLab.vue 的 <style src>），
+     别再 @import 回 style.css —— 那会把三百行只给开发用的规则塞进每个窗口。 */
+const GlassLab = defineAsyncComponent(() => import('./components/GlassLab.vue'))
 
 /* ── 页面切换：现在是五个视图，模块化路由留到 S3 ─────────────────── */
 // 支持 ?view=note 直达 —— 真机验证与将来从 AHK 唤起特定页面都用得上
@@ -178,7 +182,7 @@ function onKeydown(e: KeyboardEvent) {
     const mm = String(now.getMinutes()).padStart(2, '0')
     // ⚠ 走 insertBlockAfter 而不是插字符串：文本节点里的 `\n` 不是换行，
     //   塞进去只会变成一段带 `🕐 HH:mm` 的普通文字，下次打开才露馅。
-    el.insertBlockAfter('paragraph', `🕐 ${hh}:${mm}`)
+    el.insertBlockAfter(`🕐 ${hh}:${mm}`)
     return
   }
   // ⚠ 这里原来还有两条：Ctrl+H 插分隔线、Ctrl+Shift+H 插「新分段」二级标题。
@@ -215,9 +219,10 @@ onMounted(() => {
     setMeta,
     // 编辑命令也挂出来：Ctrl+T 时间戳、Tab 缩进走的就是这几个，
     // 探针与 AHK 可以直接调它验证行为，不必模拟键盘事件。
-    // ⚠ insertBlockAfter 仍支持 hr / heading（通用能力），但 v2.16 起没有快捷键调用它们。
-    insertBlockAfter: (kind: string, text?: string) =>
-      editorRef.value?.insertBlockAfter(kind, text ?? '') ?? 'no-editor',
+    // ⚠ v2.16 起参数只有 text —— 这里只插段落。分隔线与二级标题在 Markdown
+    //   里直接敲 `---` / `## ` 更快，没有快捷键再调那两个分支。
+    insertBlockAfter: (text?: string) =>
+      editorRef.value?.insertBlockAfter(text ?? '') ?? 'no-editor',
     indent: () => editorRef.value?.indent() ?? 'no-editor',
     outdent: () => editorRef.value?.outdent() ?? 'no-editor',
     // 保存状态：AHK 侧推过来，底栏显示。kind 只认 ok / info / err 三档。

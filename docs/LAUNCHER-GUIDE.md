@@ -318,7 +318,7 @@ Windows Terminal 的 settings.json
 
 | 形态 | 例 |
 | --- | --- |
-| **烘焙进资源** | 图片的裁剪与色调烘进 PNG、`bgAlpha 0` → 运行期只铺图，零判断 |
+| **烘焙进资源** | 图片的裁剪与色调烘进 PNG → 运行期只铺图，零判断 |
 | **固化进配置** | `Config.PlaceRight` / `DockGap`、`Themes` 静态数组、WT profile 的 `initialPosition` |
 | **改成手动** | v2.4 砍掉「自动补时间戳」（删 `FindLastTimestamp` / `Config.TimestampInterval`）→ `Ctrl+T` 手动 |
 

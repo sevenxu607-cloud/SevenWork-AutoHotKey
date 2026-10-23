@@ -37,8 +37,6 @@ ThemeJson() {
         . '"border":'   . JsText.Escape(p.border) . ","
         . '"codeBg":'   . JsText.Escape(p.codeBg) . ","
         . '"dark":'     . (p.dark ? "true" : "false") . ","
-        . '"bg":'       . JsText.Escape(p.bg)     . ","
-        . '"bgAlpha":'  . p.bgAlpha . ","
         . '"style":'    . JsText.Escape(p.style)  . ","
         . '"material":' . ThemeMaterialJson(p.material)
         ; ⚠ v2.15 起**不再**透传 radius / motion / density / dur*：

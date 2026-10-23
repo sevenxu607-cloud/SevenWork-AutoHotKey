@@ -13,5 +13,3 @@
 @import "./theme/base.css";
 @import "./theme/glass.css";
 @import "./theme/motion.css";
-/* lab（S0 材质样板）放最后：它只作用于 .lab，不影响其余页面，排后面便于整体回收 */
-@import "./theme/lab.css";

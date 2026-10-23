@@ -76,7 +76,6 @@ Persistent()
 #Include WorkBench\Capabilities\Placement\RectMath.ahk
 #Include WorkBench\Capabilities\Placement\WindowProbe.ahk
 #Include WorkBench\Capabilities\Placement\PlacementExecutor.ahk
-#Include WorkBench\Capabilities\Graphics\BackdropService.ahk
 ; UiPaint：Win32 染色原语（标题栏 / 滚动条主题 / ListView 底色）。
 ; 只收 hwnd + 颜色字符串，不认主题、不读 Config —— 主题是业务策略，在 WorkBench\Services。
 #Include WorkBench\Capabilities\Graphics\GlassPaint.ahk
@@ -132,8 +131,6 @@ Persistent()
 ; 粘贴图片落盘（WebView2 → base64 → _assets/<date>/）—— 必须在 NoteStoreService 之后
 #Include modules\SevenNote\Services\NoteImageService.ahk
 
-
-; BackdropService 已上收到 WorkBench\Capabilities\Graphics\（见上方 CAPABILITY 层）
 #Include modules\Launcher\Services\PeerLayoutService.ahk
 
 ; ═══════════════════════════════════════════════════════════════════════════
@@ -216,8 +213,8 @@ Persistent()
 ;  横切 · 美观
 ; ═══════════════════════════════════════════════════════════════════════════
 
-; 主题 / 字体 / 背景图：v2.9 起由页面自己管（CSS 变量，Alt+T 在前端实现，见 S3d）。
-; ThemeService / BackdropService / FontService 仍在 —— Text 模块的提示词窗口还在用它们。
+; 主题 / 字体：v2.9 起由页面自己管（CSS 变量，Alt+T 在前端实现，见 S3d）。
+; ThemeService / FontService 仍在 —— 平台的语义色板与笔记模块的字号档位都由它们持有。
 #Include modules\SevenNote\HostBridge.ahk
 #Include modules\SevenNote\SevenNoteModule.ahk
 
@@ -390,9 +387,6 @@ if !FileExist(Config.PandocPath) || FileGetSize(Config.PandocPath) < 1048576 {
     FileInstall "C:\Users\Seven\AppData\Local\Pandoc\pandoc.exe", A_AppData . "\SevenWork\pandoc.exe", 1
 }
 
-; ═══ 加载 RichEdit 控件库 ═══
-DllCall("LoadLibrary", "str", "msftedit.dll", "ptr")
-
 ; ═══ 配置服务初始化 ═══
 ConfigService.Init(Config.ConfigPath)
 ConfigService.SetDefault("Appearance", "ThemeIndex", "1")
@@ -400,7 +394,6 @@ ConfigService.SetDefault("Appearance", "ThemeIndex", "1")
 ConfigService.SetDefault("Appearance", "ThemeSchema", "1")
 ConfigService.SetDefault("Appearance", "FontIndex", "1")
 ConfigService.SetDefault("Appearance", "FontSizeIndex", "2")
-; 背景图不再有全局键：图与浓淡都写在主题自己的 bg / bgAlpha 上（见 ThemeService.Themes）
 ConfigService.SetDefault("Input", "CapsLockMap", "0")
 ConfigService.SetDefault("Paths", "Vault", "")
 
@@ -410,7 +403,7 @@ EnsureVaultConfigured()
 ; ═══ 确保笔记目录存在 ═══
 DirCreate(Config.GetVault())
 
-; ═══ 工作台装配（Phase 3b：模块登记 + PeerCoordinator 订阅）═══
+; ═══ 工作台装配（模块登记 + 面板就绪）═══
 ; 必须在模块 Init() 之前：订阅要赶在第一次 Alt+C / Alt+X 之前就位。
 WorkBench.Init()
 

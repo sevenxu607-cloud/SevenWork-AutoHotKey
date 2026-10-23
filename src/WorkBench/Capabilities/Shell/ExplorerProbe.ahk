@@ -105,17 +105,6 @@ class ExplorerProbe {
         return out
     }
 
-    ; 这个 hwnd 现在是不是还对应某个资源管理器窗口（COM 侧确认，防残项）。
-    static IsExplorerWindow(hwnd) {
-        if !hwnd
-            return false
-        for item in this.ListWindows() {
-            if (item.hwnd = hwnd)
-                return true
-        }
-        return false
-    }
-
     ; 两段路径是否指同一个文件夹。
     ; 归一化：去两端空白与末尾反斜杠（盘根 `D:\` 保留一个）、统一大小写 ——
     ; Windows 路径不区分大小写。

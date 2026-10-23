@@ -16,7 +16,8 @@ import { gapCursor } from '@milkdown/kit/prose/gapcursor'
 import { getMarkdown, replaceAll, $prose } from '@milkdown/kit/utils'
 import { sinkListItem, liftListItem } from '@milkdown/kit/prose/schema-list'
 import { TextSelection } from '@milkdown/kit/prose/state'
-import { storeImage, toDisplayMarkdown, toDisplayUrl, toStoredMarkdown } from '../ahk'
+import { storeImage } from '../ahk'
+import { toDisplayMarkdown, toDisplayUrl, toStoredMarkdown } from '../markdown'
 import '@milkdown/kit/prose/gapcursor/style/gapcursor.css'
 
 const props = defineProps<{ modelValue?: string }>()
@@ -228,43 +229,31 @@ defineExpose({
   },
 
   /**
-   * 在当前段落**之后**插入一个真正的块：段落 / 分隔线 / 二级标题。
+   * 在当前段落**之后**插入一个新段落（Ctrl+T 时间戳用）。
    *
-   * ⚠ 时间戳、分隔线、分段标题从前都是把 `"\n\n---\n\n"` 这样的字符串塞进光标处。
-   *   ProseMirror 的文本节点里没有「换行」这个概念，`\n` 会被压成空格或直接吃掉 ——
-   *   于是 Ctrl+H 看起来「插了一条线」，实际存进 .md 的是一段带 `---` 的普通文字，
-   *   下次打开才露馅。这里直接建 schema 节点，结构与手工敲出来的一模一样。
+   * ⚠ 从前是把 `"\n\n---\n\n"` 这样的字符串塞进光标处。ProseMirror 的文本节点里
+   *   没有「换行」这个概念，`\n` 会被压成空格或直接吃掉 —— 于是「看起来插上了」，
+   *   存进 .md 的却是一段带标记的普通文字，下次打开才露馅。这里直接建 schema
+   *   节点，结构与手工敲出来的一模一样。
+   * ⚠ v2.16 收窄成只插段落：分隔线与二级标题在 Markdown 里直接打 `---` / `## `
+   *   就即时渲染，快捷键反而多一步，于是没有任何调用方。
+   * ⚠ 也**不要**在插入后补空段落：Milkdown 把空段落序列化成 `<br />`，
+   *   存进 .md 就是一行 HTML 标签（旧笔记里没有这种东西）。
    */
-  insertBlockAfter(kind: 'paragraph' | 'hr' | 'heading', text = ''): string {
+  insertBlockAfter(text = ''): string {
     if (!editor) return 'no-editor'
     try {
       const view = editor.ctx.get(editorViewCtx)
       const { state } = view
       const { schema } = state
       const { $to } = state.selection
-      // ⚠ 光标可能落在文档最外层（刚插完分隔线、它后面没有块时就是这种）。
-      //   那种情况不能直接 return —— 否则「插完一条线，再按 Ctrl+H / Ctrl+T
-      //   全都没反应」。退化成「追加到文末」，与用户的直觉一致。
+      // ⚠ 光标可能落在文档最外层（后面没有块时就是这种）。那种情况不能直接
+      //   return —— 否则「插完一条再也插不进去」。退化成「追加到文末」。
       const pos = $to.depth >= 1 ? $to.after(1) : state.doc.content.size
 
-      const para = schema.nodes.paragraph
-
-      if (kind === 'hr') {
-        // ⚠ **不要**在 hr 后面补空段落：Milkdown 把空段落序列化成 `<br />`，
-        //   存进 .md 就是一行 HTML 标签（旧笔记里没有这种东西）。
-        //   光标交给 ProseMirror 就近解析 —— hr 后面没有块时它落在 hr 之前的
-        //   段落末尾，连续按 Ctrl+H 也就是在同一处再添一条线，视觉上看不出差别。
-        return dispatchAt(view, state.tr.insert(pos, schema.nodes.hr.create()), pos + 1)
-      }
-
-      const content = text ? schema.text(text) : null
-      const node =
-        kind === 'heading'
-          ? schema.nodes.heading.create({ level: 2 }, content)
-          : para.create(null, content)
+      const node = schema.nodes.paragraph.create(null, text ? schema.text(text) : null)
 
       // 光标落在新块的文字之后：用户接着敲的字写进新的一行
-      // （旧版插完时间戳也是这个位置）。
       return dispatchAt(view, state.tr.insert(pos, node), pos + node.nodeSize - 1)
     } catch (e) {
       return 'ERR ' + String(e)

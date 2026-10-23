@@ -51,7 +51,7 @@ class SevenNoteModule {
 
         ; ═══ 挂载 Feature ═══
         ; v2.9 起只剩四件：窗口 / 保存 / 自动保存 / 日期跳转。
-        ; 搜索、撤销、行编辑、纯文本粘贴、光标记忆、字数、背景图全部由页面接管 ——
+        ; 搜索、撤销、行编辑、纯文本粘贴、光标记忆、字数全部由页面接管 ——
         ; 它们本来就是「编辑器内部」的事，从前借着 RichEdit 的 SendMessage 硬做；
         ; 现在 Milkdown 自己就是编辑器，前端一套 keymap 就够。
         WindowFeature.Init()

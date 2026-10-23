@@ -25,12 +25,5 @@ class LoadFeature {
         }
         return true
     }
-
-    ; 读一天的正文，但**不**推进编辑器 —— 只给需要「看一眼」的调用方（如标签校验）。
-    ; 没有文件时给速记题头；读取失败时返回空串（调用方据此知道自己什么都没拿到）。
-    static ReadNote(date) {
-        r := NoteSessionService.ReadOnly(date)
-        return r.ok ? r.md : ""
-    }
 }
 

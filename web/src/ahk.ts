@@ -6,12 +6,6 @@
      这样 `npm run dev` 也能调样式，不必每次都起 AHK
    ═══════════════════════════════════════════════════════════════════════ */
 
-export interface AhkBridge {
-  ping(): Promise<string>
-  version(): Promise<string>
-  getTheme(): Promise<string>
-}
-
 type ChromeWebView = {
   hostObjects?: Record<string, any>
   postMessage(msg: unknown): void
@@ -55,8 +49,6 @@ export interface Theme {
   border?: string // 分隔线        → --sw-border
   codeBg?: string // 代码块 / 列表底 → --sw-code-bg
   dark?: boolean // 是否深色（AHK 判，避免两边公式不一致）
-  bg?: string // 背景图绝对路径（P3 背景图主题用，当前不消费）
-  bgAlpha?: number // 背景图遮罩 0-100（P3）
 
   /** 材质风格：glass = 琉璃；缺省或其它值 = flat（现有米黄外观） */
   style?: string
@@ -347,123 +339,9 @@ export async function storeImage(file: File): Promise<string> {
   return `data:${file.type || 'image/png'};base64,${b64}`
 }
 
-/* ═══════════════════════════════════════════════════════════════════════
-   路径双态：存盘要可移植，显示要能加载
-   · markdown 里写 ./_assets/<日期>/x.png —— 与 PandocService._FixMarkdown 同式，
-     用户把 Markdown 副本拿到 Typora / VS Code 里，图片照样找得到；
-   · 但页面运行在 https://app.local，相对路径会被解析成 app.local/_assets/... → 404。
-   · AHK 侧把 vault 额外挂成 vault.local（WebHostService.MapHost），
-     显示时加前缀、落盘时剥掉，两边各得其所。
-   · 浏览器预览（npm run dev）里没有 vault.local，图片会 404 —— 但那时
-     storeImage 走的是 data URL 分支，压根不会产生相对路径，碰不到这个坑。
-   ═══════════════════════════════════════════════════════════════════════ */
+/* 图片路径的双态转换与旧格式清理已搬到 ./markdown.ts —— 那里是纯函数、
+   可以单测（web/tests/markdown.test.mjs）；本文件只管宿主通信。 */
 
-export const VAULT_HOST = 'vault.local'
-const VAULT_BASE = `https://${VAULT_HOST}/`
-
-/** 相对路径 → 可显示的 URL；已经带协议的原样返回 */
-export function toDisplayUrl(src: string): string {
-  if (/^(https?:|data:|blob:)/i.test(src)) return src
-  return VAULT_BASE + src.replace(/^\.\//, '').replace(/^\/+/, '')
-}
-
-/**
- * 旧格式清理：行尾 `\`（硬换行）与 `&#x20;`（行首空格转义）。
- *
- * 为什么需要（用户 2026-10-23 反馈）：
- *   · 行尾 `\` 是 Markdown 的「硬换行」标记，但 Milkdown 既不把它当换行、也不隐藏它
- *     —— 于是它在编辑区里**原样显示**，保存时又被写回文件，越存越多；
- *   · `&#x20;` 是行首空格被转义后的样子，Milkdown 同样不解析，直接显示成 HTML 实体。
- *
- * 做法：把行尾 `\` 变成**段落分隔**（空行）—— 这样每行独立成段，渲染才稳定；
- *   `&#x20;` 还原成空格。只处理围栏代码块之外（代码块里的 `\` 是内容，不能动）。
- */
-function normalizeLegacyMarkdown(md: string): string {
-  const lines = md.split('\n')
-  const out: string[] = []
-  let inFence = false
-  for (const line of lines) {
-    if (/^\s*(```|~~~)/.test(line)) {
-      inFence = !inFence
-      out.push(line)
-      continue
-    }
-    if (inFence) {
-      out.push(line)
-      continue
-    }
-    const hit = line.match(/\\+$/)
-    if (hit) {
-      out.push(line.slice(0, -hit[0].length).replace(/[ \t]+$/, ''))
-      out.push('') // 段落分隔
-      continue
-    }
-    out.push(line.replace(/&#x20;/g, ' '))
-  }
-  return out.join('\n')
-}
-
-/**
- * markdown 里的图片相对路径 → 显示 URL。
- * 只动 `![alt](src)`，普通链接 `[t](u)` 不碰。
- * ⚠ 不支持 `![a](x.png "标题")` 这种带 title 的写法 —— 本项目不产生它。
- */
-export function toDisplayMarkdown(md: string): string {
-  return normalizeLegacyMarkdown(md).replace(
-    /(!\[[^\]]*\]\()([^)\s]+)(\))/g,
-    (_m, head: string, src: string, tail: string) => head + toDisplayUrl(src) + tail,
-  )
-}
-
-/** 反向：显示 URL → 相对路径。落盘的 markdown 必须是这一版 */
-export function toStoredMarkdown(md: string): string {
-  let out = md.replace(
-    /(!\[[^\]]*\]\()https:\/\/vault\.local\/([^)\s]+)(\))/g,
-    '$1./$2$3',
-  )
-  // ⚠ 分隔线：Milkdown 的 hr 序列化成 `***`，而旧版 RichEdit 的 Ctrl+H 写的是 `---`。
-  //   两者都是合法的 Markdown，但同一堆笔记里一半 `---` 一半 `***`，在 Obsidian
-  //   源码视图里就是「格式和以前不一样了」。这里统一回旧写法。
-  //   只认**独占一行**的 `***`（行内 `***粗斜体***` 不碰）；转成 `---` 后仍会被
-  //   Milkdown 解析成 hr —— 序列化保证块之间有空行，不会变成 setext 标题。
-  out = out.replace(/^[ \t]*\*{3,}[ \t]*$/gm, '---')
-
-  // 旧格式残留（行尾 `\` / `&#x20;`）先归一，再走下面的空行压缩。
-  out = normalizeLegacyMarkdown(out)
-
-  // ⚠ 空段落：Milkdown 把「只有一个硬换行的段落」序列化成独占一行的 `<br />`。
-  //   Markdown 里段落之间本来就靠空行分隔，空段落没有语义 —— 留着它会让同一篇
-  //   笔记里「有的空行是空行、有的是 HTML 换行」，观感不一致（用户报的「编辑过
-  //   与未编辑的地方不一样」）。整行删掉，并把连续空行压成一个。
-  // ⚠ 围栏代码块里的空行**必须原样保留**（缩进代码里的空行也是内容），所以逐行
-  //   扫、跟踪 ``` / ~~~ 状态；行内硬换行（`文字<br />文字`）不在行首行尾，也不碰。
-  const lines = out.split('\n')
-  const kept: string[] = []
-  let inFence = false
-  let blanks = 0
-  for (const line of lines) {
-    if (/^\s*(```|~~~)/.test(line)) {
-      inFence = !inFence
-      kept.push(line)
-      blanks = 0
-      continue
-    }
-    if (!inFence) {
-      if (/^\s*<br\s*\/?>\s*$/i.test(line)) continue
-      if (line.trim() === '') {
-        blanks += 1
-        if (blanks > 1) continue
-        kept.push('')
-        continue
-      }
-    }
-    blanks = 0
-    kept.push(line)
-  }
-  out = kept.join('\n')
-
-  return out
-}
 
 /* ═══════════════════════════════════════════════════════════════════════
    工作台面板（Alt+S）—— 数据契约

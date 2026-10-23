@@ -24,8 +24,5 @@ class SaveFeature {
     ; 返回同一个结果对象：调用方（切日期 / 退出）据此决定还要不要继续 ——
     ; 「事件发出去了」不等于「已经存好了」。
     static Save() => NoteSessionService.Save()
-
-    ; 取编辑器里的存储态 Markdown；取不到返回空串（调用方据此跳过这次保存）。
-    static Take() => NoteSessionService.TakeMarkdown()
 }
 

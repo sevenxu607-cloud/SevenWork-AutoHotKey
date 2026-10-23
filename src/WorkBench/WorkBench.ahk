@@ -43,8 +43,6 @@ class WorkBench {
         ; 放在最后注册 —— 它不参与启动顺序，order 5 决定它在面板里的位置。
         ModuleRegistry.Register(ThemeModule)
 
-        ; Phase 3b：先挂上 Launcher.Opened / SevenNote.WindowReady 的监听。
-        PeerCoordinator.Init()
         WebPanelUI.Init()
     }
 

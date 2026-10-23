@@ -20,11 +20,6 @@ class ModuleRegistry {
         this.modules[module.Id] := module
     }
 
-    static Unregister(id) {
-        if this.modules.Has(id)
-            this.modules.Delete(id)
-    }
-
     static Get(id) => this.modules.Has(id) ? this.modules[id] : ""
 
     static All() => this.modules

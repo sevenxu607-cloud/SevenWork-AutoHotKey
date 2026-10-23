@@ -25,8 +25,6 @@ class NoteSessionService {
     static _docLoaded := false
 
     static GetDate() => this._docDate
-    static GetPath() => this._docPath
-    static IsLoaded() => this._docLoaded
 
     ; 文件被改名之后由调用方告知新路径。
     ; ⚠ 不同步的话，下次保存会按**旧路径**再写出一份 —— 同一天出现两个文件，
@@ -166,10 +164,18 @@ class NoteSessionService {
         }
 
         ; 空笔记不落盘，且顺手清掉当天已有的 .md（与旧版语义一致）
+        ; ⚠ 删旧文件失败必须报失败：`try FileDelete` 吞掉异常后照样返回 ok，
+        ;   等于告诉用户「已经清空了」，而磁盘上那篇旧笔记还在 —— 下次打开
+        ;   又是旧内容。宁可拒绝这次保存（退出守卫会拦下），也不假装成功。
         if NoteStoreService.IsEmptyNote(md, date) {
             p := NoteStoreService.FindMd(date)
-            if (p != "" && FileExist(p))
+            if (p != "" && FileExist(p)) {
                 try FileDelete(p)
+                catch as e
+                    return {ok: false, reason: "旧笔记删不掉：" . p . " / " . e.Message}
+                if FileExist(p)
+                    return {ok: false, reason: "旧笔记删不掉：" . p}
+            }
             this._docPath := ""
             return {ok: true, empty: true}
         }

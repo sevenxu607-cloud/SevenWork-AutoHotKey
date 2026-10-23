@@ -31,7 +31,6 @@ class WebHostService {
     ; ⚠ 新代码**一律显式传 hwnd** —— 否则「最后挂的是哪个窗口」决定行为，
     ;   面板一开，笔记模块的无参 Resize 就打到面板上去了。
     static _cur := 0
-    static _bgUnsupported := false
 
     ; ─── 挂载 ───────────────────────────────────────────────────────────
     ; hwnd    父窗口（Gui.Hwnd）；同一个 hwnd 重复 Mount 只做 Fill，不重建 Chromium
@@ -73,9 +72,9 @@ class WebHostService {
 
         ; 首帧底色：Chromium 默认是白的，先在原地铺一层深色，页面到位前不闪白
         try ctrl.DefaultBackgroundColor := bgColor
-        catch
-            ; Runtime 不支持 IID_2 时忽略 —— 只影响首帧观感
-            this._bgUnsupported := true
+        catch {
+            ; Runtime 不支持 IID_2 时忽略 —— 只影响首帧观感，没人需要知道
+        }
 
         try {
             core := ctrl.CoreWebView2

@@ -38,11 +38,6 @@ class PromptStoreService {
     ; ─── 路径 ───
     static Root() => Config.GetPromptsDir()
 
-    static PathFor(category, title) {
-        cat := this.SanitizeCategory(category)
-        return this.Root() . (cat = "" ? "" : "\" . cat) . "\" . title . ".md"
-    }
-
     ; ─── 首次运行：建根目录 + 播种三个顶层分类 ───
     ; 在模块 Init() 里调用（只碰磁盘，不碰窗口，符合「Init 只做内部就绪」的约定）。
     static EnsureRoot() {

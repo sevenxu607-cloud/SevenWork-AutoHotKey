@@ -267,6 +267,10 @@ const hotkeys = [
   </div>
 </template>
 
+<!-- 材质样板的全套材质规则：只在 `?view=lab` 时随本组件异步加载。
+     ⚠ 别搬回 style.css —— 那是生产页面的主样式表，lab 的三百行只服务开发验收。 -->
+<style src="../theme/lab.css"></style>
+
 <style scoped>
 /* 只放「结构」不放进 lab.css 的少数布局钩子，材质一律在 lab.css */
 .lab__preview {

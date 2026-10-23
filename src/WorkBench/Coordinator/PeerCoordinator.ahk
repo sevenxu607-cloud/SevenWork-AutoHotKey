@@ -3,36 +3,16 @@
 ;  PeerCoordinator —— 伙伴窗口布局协调（Phase 5b）
 ; ═══════════════════════════════════════════════════════════════════════════
 ; 平台层只算几何，不搬窗口：
-;   · 订阅 Launcher.Opened / SevenNote.WindowReady，记录双方最近一次落位；
 ;   · 提供 PlanStack() 给 WindowFeature 计算「笔记在上、伙伴在下」的堆叠落点；
 ;   · 真实布局发生时广播 SevenNote.Move / Launcher.Move ——
 ;     WindowFeature 搬笔记窗口，LauncherModule 搬伙伴窗口，平台不跨模块 WinMove。
 ; 旧的 Peer.* 桥接已在 Phase 5b 移除：伙伴生命周期统一走 Launcher.Preparing /
 ; Launcher.Opened / Launcher.Failed，执行路径统一走上面两个 Move 事件。
+; ⚠ v2.16 删掉「记录双方最近一次落位」那半截（_lastNote / _lastPeer + GetLast*）：
+;   一个调用方都没有，而 PlanStack 只认传进来的矩形 —— 留着就得订阅两个事件、
+;   维护一份随时可能与真实窗口不同步的副本。
 
 class PeerCoordinator {
-    static _initialized := false
-    static _lastNote := ""
-    static _lastPeer := ""
-
-    static Init() {
-        if this._initialized
-            return
-        this._initialized := true
-        EventBus.On("Launcher.Opened", (data) => this._OnLauncherOpened(data))
-        EventBus.On("SevenNote.WindowReady", (data) => this._OnNoteReady(data))
-    }
-
-    static GetLastNote() => this._lastNote
-    static GetLastPeer() => this._lastPeer
-
-    static _OnLauncherOpened(data) {
-        this._lastPeer := data
-    }
-
-    static _OnNoteReady(data) {
-        this._lastNote := data
-    }
 
     ; ─── 几何：协调器只读业务上下文，算式交给平台能力 RectMath ───
     ; 返回：
