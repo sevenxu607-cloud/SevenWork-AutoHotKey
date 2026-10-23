@@ -203,15 +203,9 @@ class ThemeService {
 
     static _Clamp(v) => v < 0 ? 0 : (v > 255 ? 255 : v)
 
-    ; ─── 状态栏文案 ───────────────────────────────────────────────────────
-
-    ; 「主题名 · 字体名 12pt」—— 从前贴在工作区底部那条状态栏上，控件随 RichEdit 一起退场了；
-    ; 保留它是因为 FontService 还在用（`try` 包着，控件不在时静默跳过）。
-    static _BuildLabel() {
-        return ThemeService.GetName()
-            . " · " . FontService.GetName()
-            . " " . FontService.GetSize() . "pt"
-    }
+    ; ⚠ 这里曾有一个 `_BuildLabel()`（「主题名 · 字体名 12pt」），随 RichEdit 状态栏
+    ;   一起退场后已无人调用；它还会让平台 Service 反向引用模块里的 `FontService`。
+    ;   删除（v2.15）。要再显示这类文案，让窗口自己拼 —— 平台不该认识 7 种字体。
 
     ; "RRGGBB" → COLORREF（0x00BBGGRR）：Win32 的颜色是**反着**存的
     static RGBtoBGR(hexRGB) {

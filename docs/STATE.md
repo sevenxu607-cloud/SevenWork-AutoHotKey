@@ -32,9 +32,10 @@
   （探针：`meta={"date":"2026-10-23","weekday":"周四","tag":""}`，底栏文本含日期；
   同一篇 `chars=10`（Markdown）→ `textChars=7`（正文）；**带标签的笔记未验**）
 - **字体入口恢复**：`Alt+Shift+T` 切正文字体、`Alt+=` / `Alt+-` 调字号 —— 迁移时这三条
-  热键丢了，`FontService` 却一直在读写配置（用户只能改 ini）。
+  热键丢了，`FontService` 却一直在读写配置（用户只能改 ini）。切换后底栏会说一句
+  「字体：华文行楷 16pt」（旧版 StatusBar 也这么反馈）。
   （真机：`FontIndex` 1→2→3→4、`FontSizeIndex` 3→4→3，配置已还原；
-  切换时 `--sw-ed-font` 从「楷体」变「华文行楷」）
+  切换时 `--sw-ed-font` 从「楷体」变「华文行楷」，底栏文本包含「字体：华文行楷 16pt」）
 - **Pandoc 表格改输出 pipe table**：`PandocRunner` 加
   `-t markdown-grid_tables-multiline_tables-simple_tables`；合并单元格退回 `<table>` HTML 时
   `FileConvertService` 记 warning（`_HasHtmlTable`）。

@@ -71,6 +71,11 @@ class SevenNoteModule {
         ; 字体 / 字号变了，走同一条重刷路径（NoteHostTheme 会把 --sw-ed-* 一起推过去）。
         EventBus.On("Font.Changed", (*) => SevenNoteModule._OnThemeChanged())
 
+        ; 旧版 StatusBar 会在切换后说一句「✓ 字体：华文行楷 16pt」。
+        ; 不做这一步的话，按完 Alt+Shift+T 只看到字变了、不知道现在用的是哪一款。
+        EventBus.On("Font.Changed", (data) => SevenNoteModule._PushStatus(
+            {text: "字体：" . data.name . " " . data.size . "pt", kind: "info"}))
+
         ; 保存结果的可视反馈：底栏那一行。窗口没开时推送会失败，忽略即可。
         EventBus.On("Note.Status", (data) => SevenNoteModule._PushStatus(data))
 
