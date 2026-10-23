@@ -125,16 +125,19 @@ class NoteSessionService {
                 EventBus.Emit("Save.Completed"
                     , {time: FormatTime(, "HH:mm"), empty: true})
                 EventBus.Emit("Note.Status"
-                    , {text: "空笔记不落盘 · " . FormatTime(, "HH:mm"), kind: "info"})
+                    , {text: "空笔记不落盘 · " . FormatTime(, "HH:mm")
+                        , kind: "info", corner: true})
             } else if r.HasProp("unchanged") {
                 EventBus.Emit("Save.Completed"
                     , {time: FormatTime(, "HH:mm"), unchanged: true})
                 EventBus.Emit("Note.Status"
-                    , {text: "已保存 " . FormatTime(, "HH:mm"), kind: "ok"})
+                    , {text: "已保存 " . FormatTime(, "HH:mm")
+                        , kind: "ok", corner: true})
             } else {
                 EventBus.Emit("Save.Completed", {time: FormatTime(, "HH:mm")})
                 EventBus.Emit("Note.Status"
-                    , {text: "已保存 " . FormatTime(, "HH:mm"), kind: "ok"})
+                    , {text: "已保存 " . FormatTime(, "HH:mm")
+                        , kind: "ok", corner: true})
             }
             return
         }
@@ -144,7 +147,8 @@ class NoteSessionService {
         if (r.HasProp("recoverable") && r.recoverable)
             return
         EventBus.Emit("Error.Occurred", {msg: "保存失败：" . r.reason})
-        EventBus.Emit("Note.Status", {text: "保存失败：" . r.reason, kind: "err"})
+        EventBus.Emit("Note.Status"
+            , {text: "保存失败：" . r.reason, kind: "err", corner: true})
     }
 
     static _DoSave() {

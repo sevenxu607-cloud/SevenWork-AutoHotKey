@@ -16,6 +16,11 @@ class SevenNoteModule {
     ; WebView2 是否已挂上（OnSize 据此决定要不要 Fill —— 没挂上时 Fill 会抛错）
     static _mounted := false
 
+    ; 屏幕右下角提示（_CornerTip）的清除定时器。
+    ; ⚠ 存的是**函数对象**：AHK v2 的 SetTimer 没有「传 ID 停表」，停表必须把
+    ;   当初那个 Callback 再交回去一次（`SetTimer(fn, 0)`）。
+    static _tipTimer := ""
+
     ; 创建主窗口 + 挂载 Feature（原组合根 3901-3997）
     static Init() {
         ; ─── 创建主窗口 ───
@@ -136,21 +141,69 @@ class SevenNoteModule {
                 . NoteHostTheme() . ")", g.Hwnd)
     }
 
-    ; 把一行状态推到页面底栏（保存成功 / 无改动 / 失败）。
+    ; 把一行状态推到页面底栏（切日期 / 其它需要留在界面上的提示）。
     ;
+    ; ⚠ 保存类消息（`corner: true`）**不走这里** —— 用户要求「已保存」像旧版那样
+    ;   只在屏幕右下角闪一下（见 _CornerTip），别占着底栏。
     ; ⚠ 显式传 hwnd：面板与提示词库各有一份 WebView2，无参会落到最近挂载的那个窗口上。
     ; ⚠ 前端没起来时 Eval 返回 {ok:false}，这里**不记日志** —— 冷启动阶段底栏还没渲染，
     ;   每次按 Alt+Z 都刷一条错误只会把真问题淹掉。
     static _PushStatus(data) {
-        if !this._mounted || !IsObject(data)
+        if !IsObject(data)
+            return
+        text := data.HasProp("text") ? data.text : ""
+        if (text = "")
+            return
+        kind := data.HasProp("kind") ? data.kind : "info"
+
+        if (data.HasProp("corner") && data.corner) {
+            this._CornerTip(text, kind)
+            return
+        }
+
+        if !this._mounted
             return
         hwnd := State.GetGuiHwnd()
         if !hwnd
             return
-        text := data.HasProp("text") ? data.text : ""
-        kind := data.HasProp("kind") ? data.kind : "info"
         WebHostService.Eval("window.__swnote&&window.__swnote.setStatus("
             . JsText.Escape(text) . "," . JsText.Escape(kind) . ")", hwnd)
+    }
+
+    ; ─── 屏幕右下角的轻提示 ─────────────────────────────────────────────
+    ; 保存成功 / 无改动 / 保存失败都走这里：旧版就是这么提示的，一闪而过、不占界面。
+    ; ⚠ ToolTip 的 X/Y 是文字块**左上角**，没有「右对齐」这种参数 —— 先显示出来，
+    ;   量到实际尺寸再 WinMove 到工作区右下角。Sleep 15ms 是等 tooltip 窗口建出来。
+    static _CornerTip(text, kind := "info", ms := 2000) {
+        if (kind = "err")
+            ms := 4500        ; 失败要让用户看见，停久一点
+        try ToolTip(text)
+        Sleep 15
+        hwndTip := WinExist("ahk_class tooltips_class32")
+        if hwndTip {
+            try {
+                WinGetPos(&tx, &ty, &tw, &th, "ahk_id " . hwndTip)
+                MonitorGetWorkArea(MonitorGetPrimary(), &wl, &wt, &wr, &wb)
+                WinMove(wr - tw - 24, wb - th - 24, , , "ahk_id " . hwndTip)
+            }
+        }
+        ; 单例定时器：连续按保存时不要叠一堆清除回调
+        this._StopTipTimer()
+        timerFn := () => this._ClearCornerTip()
+        this._tipTimer := timerFn
+        SetTimer(timerFn, -ms)
+    }
+
+    static _StopTipTimer() {
+        fn := this._tipTimer
+        this._tipTimer := ""
+        if IsObject(fn)
+            try SetTimer(fn, 0)
+    }
+
+    static _ClearCornerTip(*) {
+        this._tipTimer := ""
+        try ToolTip()
     }
 
     static _AfterShown() {

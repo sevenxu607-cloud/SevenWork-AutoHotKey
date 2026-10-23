@@ -353,8 +353,11 @@ onMounted(async () => {
          **当前主题 · 字体**（右，原版在右上角）；正文不被挤下去。 -->
     <main v-else class="main note">
       <div class="note-head">
-        <span class="wc">{{ noteChars }} 字</span>
-        <span class="brand">{{ themeName }}<template v-if="fontLabel"> · {{ fontLabel }}</template></span>
+        <span class="title">{{ metaDate }}<template v-if="metaTag"> · {{ metaTag }}</template></span>
+        <span class="right">
+          <span class="wc">{{ noteChars }} 字</span>
+          <span class="brand">{{ fontLabel }}<template v-if="fontLabel && themeName"> · </template>{{ themeName }}</span>
+        </span>
       </div>
       <div class="note-body">
         <!-- v-model 是单向回吐：编辑器是唯一真源，不反向覆写它 -->
@@ -521,20 +524,39 @@ textarea:focus {
   min-height: 0;
 }
 
-/* 顶部信息行：字数（左）+ 当前主题 · 字体（右）。
-   对应旧版「顶部字数 + 右上角主题标签」；底栏只留日期 / 标签 / 状态。
-   ⚠ 高度要收得很紧：它只是信息条，不能把正文往下挤。 */
+/* 顶部信息行：左边**标题**（日期 · 标签，等于当前这篇的名字），右边两格 ——
+   字数、字体 · 主题（原版在右上角那两样）。
+   ⚠ 右侧两格之间留 22px：用户要求「主题和字体离字数统计有点距离」；
+     窗口窄到放不下时会整组换到第二行（flex-wrap），不会互相挤成省略号。 */
 .note-head {
   flex: none;
   display: flex;
   align-items: baseline;
   justify-content: space-between;
-  gap: 12px;
+  flex-wrap: wrap;
+  gap: 4px 22px;
   padding: 4px 22px;
   font-size: 12px;
   color: var(--sw-dim);
   border-bottom: 1px solid var(--sw-border);
   background: var(--sw-bg-alt);
+}
+
+.note-head .title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--sw-fg);
+  opacity: 0.92;
+}
+
+.note-head .right {
+  flex: none;
+  display: flex;
+  align-items: baseline;
+  gap: 22px;
 }
 
 .note-head .wc {
@@ -547,8 +569,6 @@ textarea:focus {
   flex: none;
   opacity: 0.8;
   white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
 
 .note-body {
