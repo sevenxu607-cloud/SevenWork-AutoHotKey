@@ -35,6 +35,10 @@
 - **删掉 Tab / Shift+Tab 缩进**（`App.vue` 的按键分支 + `NoteEditor.indent/outdent` +
   桥上的两个方法）：普通段落里 `indent` 本就是空操作（四个空格在 Markdown 里是代码块），
   `Shift+Tab` 只能删用户手打的空格 —— 留着只是把 Tab 吞掉，还让人以为能用。
+- **笔记热键收窄到 `editor`**（字体 ×3、日期 ×3）：从前是 `global`，在 Excel / 浏览器里
+  按 `Alt+↑` 会**先存当前笔记、再切到前一天**。`Alt+Z` 仍是 global（窗口藏着也要能叫出来）。
+  （真机探针：6 条的 `ctx` 均为 `editor`；**焦点进入 WebView2 编辑器后 `WinActive` 仍命中**
+  —— 这是收窄能成立的前提；窗口隐藏后不命中）
 - **实验前端移出生产构建**：`GlassLab.vue` 改异步加载、`lab.css` 随组件走。
   （`npm run build`：`index.css` 49.36 → 40.63 kB，另出 `GlassLab.js/css` 各 8.7 kB）
 - **回归**：`tsc --noEmit` 退出码 0；AHK 语法预检 0；真机启动 6 秒 stderr 空、

@@ -272,11 +272,14 @@ class SevenNoteModule {
             ; 但没有任何入口能改它，用户只能去改 ini（「字体和以前割裂」的一半原因）。
             ; 档位：4 种字体 × 5 档字号（12/14/16/18/20），改完广播 Font.Changed，
             ; 页面据此重写 --sw-ed-font / --sw-ed-size（见 HostBridge.NoteHostTheme）。
-            {ctx: "global", key: "!+t", group: "外观", line: "   Alt+Shift+T      切换正文字体"
+            ; ⚠ v2.17 起改成 editor 上下文：它们改的是**这篇笔记的样子**，在别的窗口
+            ;   按到只会白改配置、还抢走别人的 Alt+= / Alt+-。Alt+Z 仍是 global ——
+            ;   窗口藏着的时候总得留一条叫出来的路。
+            {ctx: "editor", key: "!+t", group: "外观", line: "   Alt+Shift+T      切换正文字体"
                 , fn: (*) => FontService.NextFont()},
-            {ctx: "global", key: "!=", group: "外观", line: "   Alt+=            调大正文字号"
+            {ctx: "editor", key: "!=", group: "外观", line: "   Alt+=            调大正文字号"
                 , fn: (*) => FontService.BiggerSize()},
-            {ctx: "global", key: "!-", group: "外观", line: "   Alt+-            调小正文字号"
+            {ctx: "editor", key: "!-", group: "外观", line: "   Alt+-            调小正文字号"
                 , fn: (*) => FontService.SmallerSize()},
 
             ; ── 【保存】──
@@ -284,11 +287,14 @@ class SevenNoteModule {
                 , fn: (*) => SaveFeature.Save()},
 
             ; ── 【日期与标签】──
-            {ctx: "global", key: "!Up", group: "日期与标签", line: "   Alt+↑            前一天"
+            ; ⚠ 上下翻日期也是 editor 上下文（v2.17）：从前是 global，于是在 Excel /
+            ;   浏览器里按 Alt+↑ 会**先存当前笔记、再打开前一天的文件**，用户完全不知道
+            ;   笔记被切走了。切日期是「看着笔记时做的事」，窗口藏着时不该有入口。
+            {ctx: "editor", key: "!Up", group: "日期与标签", line: "   Alt+↑            前一天"
                 , fn: (*) => DateSwitchFeature.Switch(-1)},
-            {ctx: "global", key: "!Down", group: "日期与标签", line: "   Alt+↓            后一天"
+            {ctx: "editor", key: "!Down", group: "日期与标签", line: "   Alt+↓            后一天"
                 , fn: (*) => DateSwitchFeature.Switch(1)},
-            {ctx: "global", key: "!Home", group: "日期与标签", line: "   Alt+Home         回到今天"
+            {ctx: "editor", key: "!Home", group: "日期与标签", line: "   Alt+Home         回到今天"
                 , fn: (*) => GoTodayFeature.Go()},
             {ctx: "editor", key: "$^g", group: "日期与标签", line: "   Ctrl+G           搜索跳转（日期 / 标签）"
                 , fn: (*) => DateJumpFeature.ShowDialog()},

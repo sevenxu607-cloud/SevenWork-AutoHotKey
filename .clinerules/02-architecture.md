@@ -56,6 +56,10 @@ ModuleRegistry.Register(<名字>Module)      ; ② WorkBench.Init() 内
 `GetContexts()` 返回 `{名字: 表达式}`，`HotkeyRouter` 遍历各模块报上来的名字注册 —— 不要再改 Router。
 ⚠ 声明了 ctx 却没人实现，该模块热键**一条都不注册**并写日志；退回 `HotIf()` 更糟
 （`Esc` / `Enter` 会变成全系统热键）。
+⚠ **判断依据是「这个键改的是哪个窗口的东西」**：改当前这篇笔记的（字体 / 字号 / 切日期 /
+保存 / 跳转）一律进 `editor`；只有「窗口藏着也得能叫出来」的才留 `global`（`Alt+Z`）。
+用 `global` 的代价是**静默截键**：`Alt+↑` 曾经在任何程序里都生效 → 在 Excel 里按一下，
+笔记会先存盘、再切到前一天，用户完全不知道发生了什么。
 
 ## WebView2 窗口一律走 `WebWindow`
 
