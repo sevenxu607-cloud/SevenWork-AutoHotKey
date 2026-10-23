@@ -117,14 +117,19 @@ class NoteSessionService {
             ; 保存可能顺带改了文件名（改标签），底栏那两条要跟着更新。
             ; 放在分支之前：空笔记 / 无改动同样可能刚改过标签。
             this.PushMeta()
+            ; ⚠ 两条「没写盘」的状态也带时间：系统开启「减少动态效果」时底栏不会闪
+            ;   （`prefers-reduced-motion: reduce` 实测为真），文字若一直不变，
+            ;   按 Ctrl+S 看起来就像「没反应」。时间戳是最低成本、且不骗人的证据。
             if r.HasProp("empty") {
                 EventBus.Emit("Save.Completed"
                     , {time: FormatTime(, "HH:mm"), empty: true})
-                EventBus.Emit("Note.Status", {text: "空笔记不落盘", kind: "info"})
+                EventBus.Emit("Note.Status"
+                    , {text: "空笔记不落盘 · " . FormatTime(, "HH:mm"), kind: "info"})
             } else if r.HasProp("unchanged") {
                 EventBus.Emit("Save.Completed"
                     , {time: FormatTime(, "HH:mm"), unchanged: true})
-                EventBus.Emit("Note.Status", {text: "无改动", kind: "info"})
+                EventBus.Emit("Note.Status"
+                    , {text: "无改动 · " . FormatTime(, "HH:mm"), kind: "info"})
             } else {
                 EventBus.Emit("Save.Completed", {time: FormatTime(, "HH:mm")})
                 EventBus.Emit("Note.Status"

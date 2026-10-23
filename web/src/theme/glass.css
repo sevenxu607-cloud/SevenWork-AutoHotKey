@@ -741,7 +741,10 @@ html[data-style='glass'] .dim {
      不压这一层，正文会跟着板外光雾的明暗一起漂（v2.16 起板面已是均匀底色，
      这一层只负责把文字从「有点亮的板」上压出对比，不再叠加渐变）。 */
 html[data-style='glass'] .sw-editor .ProseMirror {
-  background: rgba(0, 0, 0, 0.05);
+  /* ⚠ v2.16：这里原来压了一层 rgba(0,0,0,0.05)。板面改成不透明底色之后，
+     那 5% 黑会让「编辑区」与板面（含滚动条槽位、内边距）差一档灰 —— 用户看到的
+     「编辑区与未编辑区有色差」就是它。文字对比由板面底色本身承担，这里保持透明。 */
+  background: transparent;
   color: var(--sw-fg);
   caret-color: var(--sw-accent);
   text-rendering: optimizeLegibility;
@@ -1177,10 +1180,12 @@ html[data-style='glass'] .main.note::before {
   inset: 0;
   border-radius: inherit;
   pointer-events: none;
+  /* ⚠ v2.16：去掉了 `inset 0 0 46px` 那层内雾 —— 它会在板的内圈铺一圈亮光，
+     让边缘与中间差一档灰（用户说的「编辑区与未编辑区有色差」）。现在只留
+     上沿提亮 / 下沿压暗两条 1px，厚度感仍在，但底色整片均匀。 */
   box-shadow:
     inset 0 1px 0 rgba(247, 247, 247, 0.34),
-    inset 0 -1px 0 rgba(20, 20, 20, 0.28),
-    inset 0 0 46px rgba(236, 236, 236, 0.05);
+    inset 0 -1px 0 rgba(20, 20, 20, 0.28);
 }
 
 /* 顶部光带：从左上 12% 处淡入淡出，1px。比整条实线更像「光落上去」 */

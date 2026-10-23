@@ -71,6 +71,12 @@
 - **编辑区底色改成不透明的 `--sw-bg`**：此前 `.main.note` 叠了两层渐变 + 半透明底，
   背后 body 的光雾透上来 → 「打字区与空白区亮度不同」的割裂感。
   （真机：`backgroundColor = rgb(46, 46, 46)`；`backdrop-filter: none` 仍生效）
+- **编辑区色差消除**：`.ProseMirror` 的 5% 黑底改为透明、`.main.note::before` 去掉
+  46px 内雾（只留上下 1px）。
+  （真机：`editorBg=rgba(0,0,0,0)`、`plateBg=rgb(46,46,46)`，整片同色）
+- **保存反馈可感知**：`无改动 / 空笔记不落盘` 也带时间戳（`无改动 · 23:18`）——
+  这台机器 `prefers-reduced-motion` 为 true，底栏的闪动动画不播放，只靠动画等于没反馈。
+  （真机：连续保存两次 → `已保存 23:18` / `无改动 · 23:18`）
 - **回归**：`tools\run-tests.ps1` 71 条断言全绿；AHK 语法预检通过（含坏样本反向验证，
   退出码 2）；真机启动 6 秒 stderr 空、`_error.log` 无新增；`check-docs.ps1` 通过。
 

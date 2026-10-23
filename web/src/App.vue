@@ -52,6 +52,10 @@ let docLoaded = false
      用户按完 Ctrl+S 只能靠猜。 */
 const statusText = ref('')
 const statusKind = ref<'ok' | 'info' | 'err'>('info')
+/** 每次推状态 +1：模板用它当 key，让元素重建一次、重放「闪一下」动画。
+ *  ⚠ 没有它的时候，内容没改动的保存（底栏仍写「无改动」）看起来像**按了没反应** ——
+ *    文字没变，DOM 也没变。 */
+const statusSeq = ref(0)
 
 /* ── 宿主（AHK）入口 ───────────────────────────────────────────────
    AHK 用 WebHostService.Eval('window.__swnote.setMarkdown("…")') 灌内容。
@@ -203,6 +207,7 @@ onMounted(() => {
     setStatus: (text: string, kind?: string) => {
       statusText.value = String(text ?? '')
       statusKind.value = kind === 'ok' ? 'ok' : kind === 'err' ? 'err' : 'info'
+      statusSeq.value += 1
       return 'ok'
     },
     // 给 AHK 探针看的状态：ready = 编辑器建好，loaded = 真的灌过一篇文档
@@ -324,7 +329,7 @@ onMounted(async () => {
       <div class="note-foot">
         <span v-if="metaDate" class="meta">📅 {{ metaDate }} {{ metaWeekday }}</span>
         <span v-if="metaTag" class="meta">🏷 {{ metaTag }}</span>
-        <span class="st" :class="statusKind">{{ statusText }}</span>
+        <span class="st" :class="statusKind" :key="statusSeq">{{ statusText }}</span>
         <span class="wc">{{ noteChars }} 字</span>
       </div>
     </main>
@@ -515,6 +520,24 @@ textarea:focus {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+  /* 每次保存 / 状态变化闪一下：内容没改动时文字与上次相同，
+     不加这一步就「看不出按过 Ctrl+S」。 */
+  animation: status-flash 260ms ease-out;
+}
+
+@keyframes status-flash {
+  from {
+    opacity: 0.3;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .note-foot .st {
+    animation: none;
+  }
 }
 
 /* 三档只用明度与一条左边框区分 —— 主题是无色的，别在这里引入红绿。 */
