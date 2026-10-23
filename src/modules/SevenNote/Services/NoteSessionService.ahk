@@ -7,8 +7,7 @@
 ;  那个负责人 —— 当前日期 / 实际路径 / 是否已载入，三样只有一个出处：
 ;
 ;    · Open(date)  换文档：读文件 → 推给编辑器 → **前端确认接收之后**才提交日期；
-;    · Save()      落盘：返回明确结果，调用方据此决定能不能切日期 / 退出；
-;    · Reset()     丢掉会话（窗口重建、页面重导航时用）。
+;    · Save()      落盘：返回明确结果，调用方据此决定能不能切日期 / 退出。
 ;
 ;  ⚠ 位置：Service 层（可读 Config / State、可发事件），**不认识任何 Feature**。
 ;    Feature 之间「先存盘再切走」因此不必互相调用 —— 都调这里。
@@ -30,12 +29,6 @@ class NoteSessionService {
     ; ⚠ 不同步的话，下次保存会按**旧路径**再写出一份 —— 同一天出现两个文件，
     ;   而用户在 Obsidian 里看到的是改名后那个，刚改的内容却进了旧名那个。
     static SetPath(path) => this._docPath := path
-
-    static Reset() {
-        this._docDate := ""
-        this._docPath := ""
-        this._docLoaded := false
-    }
 
     ; ═══ 换文档 ═══
     ; 返回 {ok:true, created, unchanged} | {ok:false, reason}

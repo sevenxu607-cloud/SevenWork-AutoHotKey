@@ -167,7 +167,7 @@ function setMarkdown(md: string): string {
    从前在 AHK 里对着 RichEdit 算偏移，既不准，还得维护两套状态。
    ⚠ Ctrl+S / Ctrl+G / Ctrl+Shift+T 不在这里 —— 那三条由 AHK 的 editor 上下文
      热键拦下（要碰文件与对话框），前端抢走反而打不通。
-   ⚠ 监听用捕获阶段：ProseMirror 自己会处理 Tab 等键，冒泡阶段轮不到我们。 */
+   ⚠ 监听用捕获阶段：ProseMirror 自己会处理大部分按键，冒泡阶段轮不到我们。 */
 function onKeydown(e: KeyboardEvent) {
   if (view.value !== 'note') return
   const el = editorRef.value
@@ -185,18 +185,13 @@ function onKeydown(e: KeyboardEvent) {
     el.insertBlockAfter(`🕐 ${hh}:${mm}`)
     return
   }
-  // ⚠ 这里原来还有两条：Ctrl+H 插分隔线、Ctrl+Shift+H 插「新分段」二级标题。
-  //   v2.16 删除（用户 2026-10-23 反馈）：两者在 Markdown 里直接打 `---` / `## `
-  //   就会即时渲染，快捷键反而多一步；「新分段」还要求先选中占位文字再改写。
+  // ⚠ 这里原来还有三条：Ctrl+H 插分隔线、Ctrl+Shift+H 插「新分段」二级标题、
+  //   Tab / Shift+Tab 缩进。v2.16 全部删除：
+  //   · 前两条在 Markdown 里直接打 `---` / `## ` 就即时渲染，快捷键反而多一步；
+  //   · Tab 那套「列表下沉 / 段落删行首空格」实测不达预期 —— 普通段落里 indent
+  //     本就是空操作（四个空格在 Markdown 里是代码块），Shift+Tab 只能删用户
+  //     手打的空格。留着它只是把 Tab 吞掉，还让人以为能用。
   //   一个工具只保留编辑器做不到的事（输入时间戳）。
-  // Tab / Shift+Tab：列表内改层级，段落内增删行首四空格
-  // ⚠ 从前这里只认 Tab、不看 shiftKey —— Shift+Tab 也走进来插了四个空格，
-  //   等于「反缩进」这个功能根本不存在（旧文档里曾写着有）。
-  if (!e.ctrlKey && !e.altKey && e.key === 'Tab') {
-    e.preventDefault()
-    if (e.shiftKey) el.outdent()
-    else el.indent()
-  }
 }
 
 onMounted(() => {
@@ -217,14 +212,12 @@ onMounted(() => {
     getChars: () => Number(editorRef.value?.getTextLength?.() ?? 0),
     // 底栏的日期 / 星期 / 标签：AHK 侧载入、切日期、保存、改标签后推过来。
     setMeta,
-    // 编辑命令也挂出来：Ctrl+T 时间戳、Tab 缩进走的就是这几个，
-    // 探针与 AHK 可以直接调它验证行为，不必模拟键盘事件。
+    // 编辑命令挂出来：Ctrl+T 时间戳走的就是它，探针与 AHK 可以直接调它验证行为，
+    // 不必模拟键盘事件。
     // ⚠ v2.16 起参数只有 text —— 这里只插段落。分隔线与二级标题在 Markdown
     //   里直接敲 `---` / `## ` 更快，没有快捷键再调那两个分支。
     insertBlockAfter: (text?: string) =>
       editorRef.value?.insertBlockAfter(text ?? '') ?? 'no-editor',
-    indent: () => editorRef.value?.indent() ?? 'no-editor',
-    outdent: () => editorRef.value?.outdent() ?? 'no-editor',
     // 保存状态：AHK 侧推过来，底栏显示。kind 只认 ok / info / err 三档。
     setStatus: (text: string, kind?: string) => {
       statusText.value = String(text ?? '')

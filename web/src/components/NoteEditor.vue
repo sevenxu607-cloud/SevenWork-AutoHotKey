@@ -14,7 +14,6 @@ import { upload, uploadConfig } from '@milkdown/kit/plugin/upload'
 import { dropCursor } from '@milkdown/kit/prose/dropcursor'
 import { gapCursor } from '@milkdown/kit/prose/gapcursor'
 import { getMarkdown, replaceAll, $prose } from '@milkdown/kit/utils'
-import { sinkListItem, liftListItem } from '@milkdown/kit/prose/schema-list'
 import { TextSelection } from '@milkdown/kit/prose/state'
 import { storeImage } from '../ahk'
 import { toDisplayMarkdown, toDisplayUrl, toStoredMarkdown } from '../markdown'
@@ -176,55 +175,6 @@ defineExpose({
       return doc.textBetween(0, doc.content.size, '\n', '\n').length
     } catch {
       return 0
-    }
-  },
-
-  /**
-   * 增加一级缩进：列表项内真的下沉一层（Markdown 嵌套列表）。
-   *
-   * ⚠ **普通段落里什么都不做**，这是有意的：
-   *   Markdown 里行首四个空格是「代码块」，不是缩进。原来插四空格的结果是
-   *   Milkdown 为保真把首空格序列化成 `&#x20;` —— 存进 .md 就是一堆 HTML 实体，
-   *   旧笔记里从来没有这种东西。而在 Obsidian 里打开，四个空格又变成代码块。
-   *   缩进在 Markdown 里只对列表有意义，所以只对列表生效。
-   */
-  indent(): string {
-    if (!editor) return 'no-editor'
-    try {
-      const view = editor.ctx.get(editorViewCtx)
-      const { state } = view
-      if (sinkListItem(state.schema.nodes.list_item)(state, view.dispatch)) return 'ok'
-      return 'no-op'
-    } catch (e) {
-      return 'ERR ' + String(e)
-    }
-  },
-
-  /**
-   * 减少一级缩进：列表项提层；普通段落删掉用户手打的行首空格（最多四个）。
-   *
-   * ⚠ 这里保留删空格 —— 那是**用户自己敲进去的**字符，属于内容，该能删。
-   *   （indent 不往里加，是为了不凭空制造 Markdown 里的非法缩进。）
-   */
-  outdent(): string {
-    if (!editor) return 'no-editor'
-    try {
-      const view = editor.ctx.get(editorViewCtx)
-      const { state } = view
-      if (liftListItem(state.schema.nodes.list_item)(state, view.dispatch)) return 'ok'
-
-      const { $from } = state.selection
-      if ($from.depth < 1) return 'no-block'
-      const start = $from.start($from.depth)
-      const end = Math.min(start + 4, $from.end($from.depth))
-      if (end <= start) return 'no-indent'
-      const m = /^[ \u3000]{0,4}/.exec(state.doc.textBetween(start, end))
-      const n = m ? m[0].length : 0
-      if (!n) return 'no-indent'
-      view.dispatch(state.tr.delete(start, start + n).scrollIntoView())
-      return 'ok'
-    } catch (e) {
-      return 'ERR ' + String(e)
     }
   },
 

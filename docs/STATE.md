@@ -28,10 +28,13 @@
 - **删零调用代码**：`BackdropService`（19KB，贴图被 WebView2 合成表面整片盖住）+
   `bg` / `bgAlpha` / `bgFit` 三字段；`FolderSlotService.GetAll/Describe`、
   `LoadFeature.ReadNote`、`SaveFeature.Take`、`NoteSessionService.GetPath/IsLoaded`、
-  `PromptStoreService.PathFor`、`ExplorerProbe.IsExplorerWindow`、
+  `NoteSessionService.Reset`、`PromptStoreService.PathFor`、`ExplorerProbe.IsExplorerWindow`、
   `ModuleRegistry.Unregister`、`WebHostService._bgUnsupported`；
   `PeerCoordinator` 的「记录最近落位」半截（含它的 `Init()`）；`msftedit.dll` 预加载。
 - **`NoteEditor.insertBlockAfter` 收窄**到只插段落（分隔线 / 二级标题在 Markdown 里直接打）。
+- **删掉 Tab / Shift+Tab 缩进**（`App.vue` 的按键分支 + `NoteEditor.indent/outdent` +
+  桥上的两个方法）：普通段落里 `indent` 本就是空操作（四个空格在 Markdown 里是代码块），
+  `Shift+Tab` 只能删用户手打的空格 —— 留着只是把 Tab 吞掉，还让人以为能用。
 - **实验前端移出生产构建**：`GlassLab.vue` 改异步加载、`lab.css` 随组件走。
   （`npm run build`：`index.css` 49.36 → 40.63 kB，另出 `GlassLab.js/css` 各 8.7 kB）
 - **回归**：`tsc --noEmit` 退出码 0；AHK 语法预检 0；真机启动 6 秒 stderr 空、
