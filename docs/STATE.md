@@ -26,7 +26,8 @@
   **「面板里有改动 → true」这一支未真机点验**）
 - **外观去参数化**：撤掉材质浓度 / 圆角 / 动效 / 密度四项；`ThemeService` 不再读
   `[Appearance]` 那四个键；`ThemeJson` / `ahk.ts` / `glass.css` 同步清理；外观页
-  只剩「当前主题 + 说明」，没有保存按钮。（`npm run build` 通过；**真机目视未做**）
+  只剩「当前主题 + 说明」，没有保存按钮。（`npm run build` 通过；真机面板 DOM：
+  外观页 `inputs=0` / `selects=0` / 无 `sw-btn--primary`，说明文字正确）
 - **笔记状态栏**：底栏恢复「📅 日期 星期」「🏷 标签」，字数改成正文纯文本长度
   （`NoteSessionService.Meta/PushMeta` + `NoteHostMeta` + `NoteEditor.getTextLength`）。
   （探针：`meta={"date":"2026-10-23","weekday":"周四","tag":""}`，底栏文本含日期；
