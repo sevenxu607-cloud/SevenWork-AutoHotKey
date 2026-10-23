@@ -41,6 +41,11 @@ $mdFiles = $mdFiles | Where-Object { $_.FullName -notmatch '\\\.git\\' } | Sort-
 $ahkFiles = @()
 $ahkFiles += Get-ChildItem -LiteralPath $root -Filter *.ahk -File
 $ahkFiles += Get-ChildItem -LiteralPath (Join-Path $root 'src') -Filter *.ahk -File -Recurse
+# tests\ holds the pure-logic runner; same CRLF/no-BOM rule applies there.
+$testsDir = Join-Path $root 'tests'
+if (Test-Path -LiteralPath $testsDir) {
+    $ahkFiles += Get-ChildItem -LiteralPath $testsDir -Filter *.ahk -File -Recurse
+}
 # src\lib\ holds third-party AHK bindings (WebView2). Keep them byte-identical to
 # upstream: converting their line endings would have to be redone on every upgrade,
 # and the diff would be pure whitespace noise.

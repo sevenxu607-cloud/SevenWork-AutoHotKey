@@ -2,16 +2,43 @@
 
 ## 改完必须验证
 
-**不要只靠「读代码觉得没问题」就说改好了。** 改 `.ahk` 必须用真实解释器跑一次。
+**不要只靠「读代码觉得没问题」就说改好了。** 按改动范围选**最少但必要**的验证：
 
-只改文档时（`.md` / `.clinerules` / `tools\*.ps1`）不用起 AHK，但必须跑：
+| 改了什么 | 至少跑 |
+| --- | --- |
+| 纯逻辑（`Capabilities` 里的计算 / 字符串处理） | `tools\run-tests.ps1` |
+| 任何 `.ahk` | 上面 + 语法预检（见下） |
+| 会建窗口 / 读配置的 | 上面 + 真机启动（见下） |
+| 只改文档 | `tools\check-docs.ps1` |
 
 ```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\run-tests.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\check-docs.ps1
 ```
 
-输出 `=== RESULT: all checks passed ===` 且**退出码 0** 才算过 —— 它抓的是结构性腐化
-（相对链接断、编码跑偏、代码围栏没配平），**抓不到「内容说错了」**。
+- `run-tests.ps1` 跑 `tests\RunTests.ahk`：**纯逻辑回归，不建窗口、不读配置、不碰真实笔记**。
+  `=== TESTS PASSED ===` 且退出码 0 才算过；详细结果在 `%TEMP%\SevenWorkDev\tests.log`。
+- `check-docs.ps1` 抓结构性腐化（相对链接断、编码跑偏、围栏没配平 / 版本号不一致），
+  **抓不到「内容说错了」**。
+
+## 加测试
+
+- 入口 `tests\RunTests.ahk`；断言库 `tests\TestLib.ahk`；用例放 `tests\Cases\<模块>.Tests.ahk`。
+- **只 include 纯能力**：不建窗口、不读 `Config` / `State`、不写真实笔记。
+  需要窗口的行为仍靠真机流程手验 —— 别为了「覆盖率高」把整个应用拖进测试。
+- 一条断言一个行为，描述写清「期望什么」；失败信息必须同时给出 expected 与 actual。
+- 数字断言要求两边**真的是数字**（`T_Eq` 有守卫）：否则「空串 = 0」会把错误判成通过。
+
+### 反向验证（新增 / 修改用例后必做）
+
+**测试全绿不等于测试有效。** 步骤：
+
+1. 故意改坏被测代码的**行为**（不是注释、不是等价改写）；
+2. 跑测试，确认对应用例**变红且退出码为 1**；
+3. `git checkout` 或备份恢复；
+4. 再跑一次，确认回到全绿。
+
+⚠ 改条件不改赋值这类「等价改写」不会让测试变红 —— 那是测试没问题，是验证动作做错了。
 
 ## 编码与换行
 
