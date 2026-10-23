@@ -253,6 +253,18 @@ class SevenNoteModule {
             {ctx: "global", key: "!z", group: "窗口", line: "   Alt+Z            呼出 / 隐藏"
                 , fn: (*) => WindowFeature.Toggle()},
 
+            ; ── 【外观】──
+            ; v2.15 恢复：这三条在迁到 WebView2 时丢了 —— FontService 还在、配置也还在读，
+            ; 但没有任何入口能改它，用户只能去改 ini（「字体和以前割裂」的一半原因）。
+            ; 档位：7 种字体 × 5 档字号（12/14/16/18/20），改完广播 Font.Changed，
+            ; 页面据此重写 --sw-ed-font / --sw-ed-size（见 HostBridge.NoteHostTheme）。
+            {ctx: "global", key: "!+t", group: "外观", line: "   Alt+Shift+T      切换正文字体"
+                , fn: (*) => FontService.NextFont()},
+            {ctx: "global", key: "!=", group: "外观", line: "   Alt+=            调大正文字号"
+                , fn: (*) => FontService.BiggerSize()},
+            {ctx: "global", key: "!-", group: "外观", line: "   Alt+-            调小正文字号"
+                , fn: (*) => FontService.SmallerSize()},
+
             ; ── 【保存】──
             {ctx: "editor", key: "$^s", group: "保存", line: "   Ctrl+S           手动保存"
                 , fn: (*) => SaveFeature.Save()},
