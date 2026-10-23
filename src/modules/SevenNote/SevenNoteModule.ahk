@@ -82,10 +82,11 @@ class SevenNoteModule {
         ; 改标签 = 文件改名：底栏的「🏷 标签」要跟着换（路径已在 TitleFeature 里更新）。
         EventBus.On("Title.Changed", (*) => NoteSessionService.PushMeta())
 
-        ; 切日期给一句「→ 已切换到 2026-10-23 周四」—— 旧版 StatusBar 就是这么反馈的。
+        ; 切日期给一句「已切换到 2026-10-23 周四」—— 旧版 StatusBar 就是这么反馈的。
         ; 底栏 2.2 秒后自动清空（由前端负责），这里只负责推。
+        ; ⚠ 行首那个 `→` 已按用户要求去掉（2026-10-23）：箭头在底栏里显得吵。
         EventBus.On("Date.Switched", (d) => SevenNoteModule._PushStatus(
-            {text: "→ 已切换到 " . d.date . " " . NoteStoreService.GetWeekday(d.date)
+            {text: "已切换到 " . d.date . " " . NoteStoreService.GetWeekday(d.date)
                 , kind: "info"}))
 
         ; ⚠ 字体 / 字号偏好必须在这里显式加载 —— 全项目没有第二处调它。
