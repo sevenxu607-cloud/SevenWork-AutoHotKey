@@ -353,7 +353,7 @@ onMounted(async () => {
          **当前主题 · 字体**（右，原版在右上角）；正文不被挤下去。 -->
     <main v-else class="main note">
       <div class="note-head">
-        <span class="title">{{ metaDate }}<template v-if="metaTag"> · {{ metaTag }}</template></span>
+        <span class="title">{{ metaTag || '速记' }}</span>
         <span class="right">
           <span class="wc">{{ noteChars }} 字</span>
           <span class="brand">{{ fontLabel }}<template v-if="fontLabel && themeName"> · </template>{{ themeName }}</span>
@@ -365,7 +365,6 @@ onMounted(async () => {
       </div>
       <div class="note-foot">
         <span v-if="metaDate" class="meta">📅 {{ metaDate }} {{ metaWeekday }}</span>
-        <span v-if="metaTag" class="meta">🏷 {{ metaTag }}</span>
         <span class="st" :class="statusKind" :key="statusSeq">{{ statusText }}</span>
       </div>
     </main>
@@ -524,8 +523,9 @@ textarea:focus {
   min-height: 0;
 }
 
-/* 顶部信息行：左边**标题**（日期 · 标签，等于当前这篇的名字），右边两格 ——
+/* 顶部信息行：左边**标题**（文件名里的标签；没设标签就是「速记」），右边两格 ——
    字数、字体 · 主题（原版在右上角那两样）。
+   ⚠ 顶栏**不显示日期**：日期在底栏左下已经有了，两个时间是重复的（用户 2026-10-23）。
    ⚠ 右侧两格之间留 22px：用户要求「主题和字体离字数统计有点距离」；
      窗口窄到放不下时会整组换到第二行（flex-wrap），不会互相挤成省略号。 */
 .note-head {
@@ -598,7 +598,10 @@ textarea:focus {
 }
 
 .note-foot .st {
-  flex: 1 1 auto;
+  /* 状态在底栏**右侧**：左边日期 / 星期，右边「已保存 …」（用户 2026-10-23 要求）。
+     margin-left:auto 把它推到行尾，比 justify-content: space-between 更稳
+     —— 中间没有第三格时，space-between 会把它顶在中间。 */
+  margin-left: auto;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
