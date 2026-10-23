@@ -80,7 +80,7 @@
 经验包记「为什么」，测试记「必须是」。一条规则如果能用断言表达，就别只写在文档里 ——
 **文档会被忽略，测试会红。**
 
-- 入口：`tools\run-tests.ps1`（跑 `tests\RunTests.ahk`）
+- 入口：`tools\run-tests.ps1`（AHK 的 `tests\RunTests.ahk` + 前端的 `web\tests\*.test.mjs`）
 - 写用例的规则与反向验证步骤见 [`04-workflow.md`](04-workflow.md)
 - 覆盖不到的（建窗口、读配置、真实笔记）仍靠真机手验，**不要为此把整个应用拖进测试**
 

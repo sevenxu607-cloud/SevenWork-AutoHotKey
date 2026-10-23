@@ -17,15 +17,19 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\run-tests.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\check-docs.ps1
 ```
 
-- `run-tests.ps1` 跑 `tests\RunTests.ahk`：**纯逻辑回归，不建窗口、不读配置、不碰真实笔记**。
-  `=== TESTS PASSED ===` 且退出码 0 才算过；详细结果在 `%TEMP%\SevenWorkDev\tests.log`。
+- `run-tests.ps1` 跑**两套**：`tests\RunTests.ahk`（AHK，纯逻辑）与
+  `node --test web\tests\*.test.mjs`（前端纯函数，如 Markdown 清洁）。两边都是
+  **不建窗口、不读配置、不碰真实笔记**。全部通过才打印 `=== TESTS PASSED ===`；
+  详细结果在 `%TEMP%\SevenWorkDev\tests.log`。
 - `check-docs.ps1` 抓结构性腐化（相对链接断、编码跑偏、围栏没配平 / 版本号不一致），
   **抓不到「内容说错了」**。
 
 ## 加测试
 
-- 入口 `tests\RunTests.ahk`；断言库 `tests\TestLib.ahk`；用例放 `tests\Cases\<模块>.Tests.ahk`。
-- **只 include 纯能力**：不建窗口、不读 `Config` / `State`、不写真实笔记。
+- AHK 侧：入口 `tests\RunTests.ahk`；断言库 `tests\TestLib.ahk`；用例放 `tests\Cases\<模块>.Tests.ahk`。
+- 前端侧：用例放 `web\tests\<模块>.test.mjs`，用 `node:test` + `node:assert`，只 import
+  `web\src\` 里的纯函数模块（别 import `.vue` / 别碰 `chrome.webview`）。
+- **只测纯能力**：不建窗口、不读 `Config` / `State`、不写真实笔记。
   需要窗口的行为仍靠真机流程手验 —— 别为了「覆盖率高」把整个应用拖进测试。
 - 一条断言一个行为，描述写清「期望什么」；失败信息必须同时给出 expected 与 actual。
 - 数字断言要求两边**真的是数字**（`T_Eq` 有守卫）：否则「空串 = 0」会把错误判成通过。

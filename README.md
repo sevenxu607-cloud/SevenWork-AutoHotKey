@@ -83,14 +83,15 @@
 ## 开发
 
 ```powershell
-# 纯逻辑回归（不建窗口、不读配置、不碰真实笔记）
+# 纯逻辑回归（不建窗口、不读配置、不碰真实笔记）：AHK 71 条 + 前端 17 条
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\run-tests.ps1
 
 # 文档与编码体检：链接 / LF / CRLF / 版本号 / 代码围栏
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\check-docs.ps1
 ```
 
-用例在 `tests\Cases\`，入口 `tests\RunTests.ahk`。新增用例后要**故意改坏一次**，确认它会红。
+AHK 用例在 `tests\Cases\`，入口 `tests\RunTests.ahk`；前端纯函数用例在 `web\tests\`
+（`node:test`，如 Markdown 清洁与代码区保护）。新增用例后要**故意改坏一次**，确认它会红。
 语法预检、真机启动、探针的完整做法见 [`.clinerules/04-workflow.md`](.clinerules/04-workflow.md)。
 
 | 想了解 | 看 |
