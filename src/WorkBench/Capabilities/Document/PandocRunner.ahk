@@ -73,7 +73,16 @@ class PandocRunner {
         ;   H1/H2 会写成 `标题` 下面跟一行 `====` / `----`。多数编辑器的**大纲面板只认 ATX**
         ;   （`#` 开头），setext 标题在它们眼里就是普通段落 —— 实测用户截图里大纲列的全是正文。
         ;   三级及以下本来就是 ATX，所以只有文档真有 H1/H2 时这个差别才显形。
+        ; ⚠ 表格必须显式锁成 **pipe table**（GFM / Obsidian / Milkdown 只认这一种）。
+        ;   实测（pandoc 3.8，2026-10-23）：不指定 -t 时，pandoc 的 markdown writer
+        ;   会按内容挑 grid / multiline / simple 三种表格 —— 本项目的笔记编辑器对它们
+        ;   全都不渲染，整张表变成一串纯文本。这就是「表格转换异常」的根因。
+        ;   `-grid_tables-multiline_tables-simple_tables` 只禁用这三种语法，保留
+        ;   pipe_tables（markdown 扩展默认开启），其他元素的行为不变。
+        ; ⚠ 合并单元格在 GFM 里无法表达，pandoc 会退回 <table> HTML —— 内容不丢，
+        ;   但编辑器多半不渲染。调用方据此给警告（FileConvertService._HasHtmlTable）。
         args := '--wrap=none --markdown-headings=atx'
+            . ' -t markdown-grid_tables-multiline_tables-simple_tables'
         if (mediaDir != "")
             args .= ' --extract-media="' . mediaDir . '"'
         args .= ' "' . src . '" -o "' . dst . '"'

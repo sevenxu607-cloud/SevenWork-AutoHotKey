@@ -34,6 +34,12 @@ class ConvertFeature {
             return
         }
 
+        ; ⚠ 转换是**同步**的（PandocRunner 用 RunWait），几十 MB 的课件要跑好几秒，
+        ;   期间主线程不响应任何热键。不先给一句提示的话，用户会以为程序卡死；
+        ;   再按一次 Alt+M 只会把第二次请求排到这次后面，更像「转换坏了」。
+        ;   转换结束那一行由 _Tip 覆盖掉（它自己带清除定时器）。
+        try ToolTip(paths.Length = 1 ? "正在转换…" : "正在转换 " . paths.Length . " 个文件…")
+
         r := FileConvertService.ConvertMany(paths)
 
         ; 失败原因进日志：ToolTip 只放一句结论，退出码与细节都落到 _error.log。

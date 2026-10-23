@@ -73,6 +73,12 @@ class FileConvertService {
                 ; 但必须让用户看见 —— 否则他会把 Markdown 里那串序号当成原文。
                 for w in prep.warnings
                     result.warnings.Push({path: src, msg: w})
+                ; 合并单元格在 Markdown 里表达不了，pandoc 会退回 <table> HTML。
+                ; 内容不丢，但编辑器多半不渲染 —— 必须说出来，别让用户以为
+                ; 「表格转完了却看不见」是自己操作错了。
+                if this._HasHtmlTable(plan.dst)
+                    result.warnings.Push({path: src
+                        , msg: "含合并单元格的表格已输出为 <table> HTML（编辑器可能不渲染）"})
                 continue
             }
             if (!hadMedia && DirExist(plan.mediaDir)) {
@@ -199,6 +205,17 @@ class FileConvertService {
     }
 
     ; ═══ 小工具 ═══
+
+    ; 转换结果里有没有 <table> 原始 HTML（= 有表格用了 Markdown 表达不了的合并单元格）。
+    ; 只读文本，不解析 HTML —— 我们要回答的只是「有没有降级」。
+    static _HasHtmlTable(mdPath) {
+        if !FileExist(mdPath)
+            return false
+        try txt := FileRead(mdPath, "UTF-8")
+        catch
+            return false
+        return InStr(txt, "<table") > 0
+    }
 
     ; 失败原因里的那一行 pandoc 原文（可能不存在：no-output 分支就没有 detail）
     static _DetailOf(r) {

@@ -96,6 +96,12 @@
   判断某个能力是否可用要看**入口**（热键 / 面板字段），不能只看 Service 与事件链。
   **已实测**（2026-10-23：恢复 `Alt+Shift+T` / `Alt+=` / `Alt+-` 后，`FontIndex` 真的会变，
   `--sw-ed-font` 也跟着从「楷体」变「华文行楷」）。
+- **Markdown 表格必须锁成 pipe table**：pandoc 的 markdown writer 会按内容挑
+  grid / multiline / simple 三种表格，而 GFM（Obsidian / Milkdown）只认 pipe table。
+  **已实测**（pandoc 3.8，2026-10-23，同一份 HTML）：默认输出 multiline
+  （`  A   B` + `  --- ---`），加 `-t markdown-grid_tables-multiline_tables-simple_tables`
+  才变成 `| A | B |`。合并单元格在 GFM 里表达不了，pandoc 会退回 `<table>` HTML
+  —— 内容保留、编辑器未必渲染，所以转换侧必须给警告，不能静默降级。
 - **写入走「同目录临时文件 → 写完替换」**，不要 `FileOpen(path, "w")` —— 它先把原文件
   截断成 0 字节再写，中途失败就是空文件。
 - **读失败不能静默回退成空笔记**：那等于 40 行笔记换一行标题。区分「没文件」/「读不出」/「读到」。
