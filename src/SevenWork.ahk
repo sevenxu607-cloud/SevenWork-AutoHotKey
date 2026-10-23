@@ -19,7 +19,7 @@ Persistent()
 ;  SevenWork —— v2.14
 ;  Windows 本地工作台：WebView2 里的 Milkdown 编辑器 + 若干日常小工具。
 ;  ⚠ 版本号以 Config.Version 为准（显示在 Alt+S 面板底部），改这里要一并改它。
-;  历史与取舍见 docs/HISTORY.md，开发经验见 docs/EXPERIENCE.md。
+;  方向见 docs/INTENT.md，当前进度见 docs/STATE.md，开发经验见 docs/EXPERIENCE.md。
 ;
 ;  【用户旅程编号】组合根启动区与各模块 GetHotkeys / Feature 头部都用这套编号标注归属 ——
 ;    ① 唤起与关闭    Alt+Z 呼出 / 隐藏

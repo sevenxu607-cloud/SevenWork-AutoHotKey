@@ -1,63 +1,81 @@
 # SevenWork
 
-Windows 本地工作台：一个随叫随到的速记窗口，加上几个日常小工具。全部跑在 AutoHotkey v2 上，
-界面是 WebView2 里的 Vue + Milkdown，**笔记直接读写 `.md`**。
+**一个面向个人 Windows 工作流的本地工作台。** 用统一的热键和面板，把速记、提示词、文件操作、
+外部程序和输入辅助收在一处 —— 不用先找窗口、找软件。
+
+后台是 AutoHotkey v2（管窗口、热键、磁盘、进程），前台是 WebView2 里的 Vue + Milkdown。
+**记下来的东西都是普通文件**：笔记就是 `.md`，直接落在你自己的 Obsidian 库里。
 
 ![version](https://img.shields.io/badge/version-2.14-blue)
 ![platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-lightgrey)
 ![language](https://img.shields.io/badge/language-AutoHotkey%20v2-green)
 ![license](https://img.shields.io/badge/license-MIT-orange)
 
-> ⚠ **这是开发期仓库，不是稳定发行版。** 功能、数据结构、界面都还在改；
-> 分发包、WebView2 运行时打包、跨机器首次运行**尚未验收**。要拿去日用请先读「已知风险」。
+> ⚠ **开发期项目，不是稳定发行版。** 分发包、WebView2 运行时打包、跨机器首次运行都**还没验收**。
+> 日常自用可以，给别人装机之前先读「已知限制」。
 
-## 它是什么
+## 它解决什么问题
 
-```text
-平台层   AHK 负责窗口、全局热键、文件读写、外部程序
-界面层   WebView2 里的 Vue + Milkdown，负责编辑与面板
-数据层   笔记就是 .md，直接落在你自己的 Obsidian 库里
-```
+| 痛点 | 做法 |
+| --- | --- |
+| 打开笔记软件要几秒，灵感等不起 | `Alt+Z` 呼出即写，收起自动存 |
+| 常用动作散在好几个软件里 | 一个面板 + 一套热键：提示词、文件夹、终端、网页、转换 |
+| 记下来的东西被某个软件锁死 | 落盘就是标准 Markdown，任何编辑器都能开 |
+| 并排用时窗口手动摆两次 | 呼出伙伴窗口时，笔记窗口让位并对齐（只首次） |
 
-六个模块：笔记（`Alt+Z`）、提示词库（`Alt+P`）、文件夹槽位（`Alt+1/2/3`）、
-外部程序（`Alt+C` / `Alt+X`）、键位映射（`Alt+Shift+C`）、外观参数（`Alt+S` 里的设置页）。
+## 现在有什么
 
-## 快速开始
+| 模块 | 干什么 | 入口 |
+| --- | --- | --- |
+| 笔记 | 每日 `.md`，标签写在文件名里，图片收进 `_assets/日期/` | `Alt+Z` |
+| 提示词库 | `<Vault>\_prompts\` 下的普通 Markdown | `Alt+P` |
+| 文件夹槽位 | 三个常用目录随叫随到 | `Alt+1/2/3` |
+| 外部程序 | PowerShell 终端、DeepSeek 网页，自动与笔记对齐 | `Alt+C` / `Alt+X` |
+| 输入辅助 | CapsLock → `H/J/K/L` 方向键 | `Alt+Shift+C` |
+| 外观 | 材质浓度、圆角、动效、密度 | `Alt+S` 里的设置页 |
 
-1. 装 **AutoHotkey v2**（64 位）—— 源码运行必需
-2. 确认有 **WebView2 Runtime**（Win11 自带，Win10 多数随 Edge 装好）
-3. 双击仓库根目录的 `SevenWork.ahk`（它只是启动器，实际入口在 `src\SevenWork.ahk`）
-4. 首次运行会让你选笔记目录
-5. 按 `Alt+Z` 呼出笔记窗口
+**完整热键表不用查文档**：按 `Alt+S` 打开工作台面板，「全部热键」一页列全、按模块分组。
 
-**查热键不用翻文档**：按 `Alt+S` 打开工作台面板，「全部热键」一页列全、按模块分组。
+## 跑起来
 
-## 数据在哪
+1. 装 **AutoHotkey v2**（64 位）
+2. 确认有 **WebView2 Runtime**（Win11 自带；Win10 多数随 Edge 装好）
+3. 双击仓库根目录的 `SevenWork.ahk` —— 它只是启动器，实际入口在 `src\SevenWork.ahk`
+4. 首次运行选择笔记目录
+5. 按 `Alt+Z`
+
+改前端（`web\src\`）之后要在 `web\` 下 `npm run build`，产物 `web\dist\` 已入库、AHK 从这里加载。
+
+## 数据与安全
 
 ```text
 <你选的笔记目录>\             ← 只需备份这个
 ├─ 2026-09-20.md              每天的笔记
-├─ 2026-09-20-机器学习.md      带标签的版本（标签写在文件名里）
+├─ 2026-09-20-机器学习.md      带标签的版本
 ├─ _assets\2026-09-20\        当天粘贴的图片
-└─ _prompts\                  提示词库（普通目录 + 普通 .md）
+└─ _prompts\                  提示词库
 
 %AppData%\SevenWork\           _config.ini、_error.log
 ```
 
-- 写入走「同目录临时文件 → 写完替换」，中途失败不会留下半个文件；
-- **内容没变就不写盘**；空笔记不落盘；
-- 出问题先看 `%AppData%\SevenWork\_error.log`。
+实际做到的是这些（**不要当成更强的承诺**）：
 
-## 已知风险
+- 写入走「同目录临时文件 → 写完替换」，避免直接截断原文件；
+- 内容没变不写盘；空笔记不落盘；
+- 收起窗口、保存退出前都会先确认保存成功，存不住就留在原地并给出提示。
 
-| 风险 | 说明 |
+**没做到**：断电 / 崩溃瞬间的强一致保证，外部修改检测，多端同步。
+
+## 已知限制
+
+| 限制 | 说明 |
 | --- | --- |
 | **外部修改可能被覆盖** | 没有文件监听。在 Obsidian 里改完再回来保存，以编辑器内容为准 |
-| 同日多文件只认第一个 | 同一天同时有 `日期.md` 与 `日期-标签.md` 时，按日期只匹配第一个 |
-| 收起前要能存住 | 工具栏 `×` 与 `Alt+Z` 都会先存盘；存不住就不收起（正文仍留在编辑器里） |
+| 同日多文件只认第一个 | `日期.md` 与 `日期-标签.md` 并存时，按日期只匹配第一个 |
 | 标签单字段 | 每个日期一个标签 |
 | 仅 Windows | AHK v2 的平台限制 |
 | 改配置要重启 | `_config.ini` 在进程内被缓存 |
+| DOCX 编号只验过样本 | 标题编号固化只对一份 23MB 课件验证过，`lvlOverride` / 罗马数字未处理 |
 
 ## 开发
 
@@ -66,16 +84,17 @@ Windows 本地工作台：一个随叫随到的速记窗口，加上几个日常
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\check-docs.ps1
 ```
 
-语法预检与真机启动的正确做法见 [`.clinerules/04-workflow.md`](.clinerules/04-workflow.md)。
+语法预检、真机启动、探针的完整做法见 [`.clinerules/04-workflow.md`](.clinerules/04-workflow.md)。
 
 | 想了解 | 看 |
 | --- | --- |
-| 下次怎么少踩坑、哪里不能碰 | [`docs/EXPERIENCE.md`](docs/EXPERIENCE.md) |
-| 为什么长成今天这样、放弃过什么 | [`docs/HISTORY.md`](docs/HISTORY.md) |
-| 改代码的硬约束与验证流程 | [`.clinerules/`](.clinerules/) |
+| 这个项目要成为什么、不做什么 | [`docs/INTENT.md`](docs/INTENT.md) |
+| 现在停在哪、下一步做什么 | [`docs/STATE.md`](docs/STATE.md) |
+| 下次怎么少踩坑、哪些方向算过账 | [`docs/EXPERIENCE.md`](docs/EXPERIENCE.md) |
+| 改代码的硬约束 | [`.clinerules/`](.clinerules/) |
 | 接一个新的外部窗口 | [`docs/LAUNCHER-GUIDE.md`](docs/LAUNCHER-GUIDE.md) |
 
-**进度与当前状态不写在文档里** —— 写下的那一刻就开始过期。直接问 AI，或者看代码 / `git log`。
+历史看 `git log`；原始对话在仓库外的私人档案，不进 Git。
 
 ## License
 
