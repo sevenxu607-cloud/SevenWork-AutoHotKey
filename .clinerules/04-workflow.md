@@ -142,6 +142,9 @@ Get-Process AutoHotkey64 | Stop-Process -Force        # 收工，别留实例
   （会污染 VS Code 的「问题」面板），**更别写进仓库**（会进 `git status`）；
 - 清理：`Remove-Item "$env:TEMP\SevenWorkDev" -Recurse -Force`；
 - 提交信息用**简体中文短句**，说清「做了什么」，不加 `feat:` / `fix:` 前缀。
+- ⚠ **中文提交信息走文件**：`git commit -F <UTF-8 文件>`，别用 `git commit -m "中文"` ——
+  PowerShell 传参可能按 ANSI 转码，历史里会留下 `鍒犳帀…` 这类乱码（实测踩过一次，
+  只能 `--amend -F` 修）。
 - **提交前过一遍 [`05-records.md`](05-records.md) 的「每次会话结束：固定动作」** ——
   状态卡 / 经验包 / 意图书 / 对话档案，四份各管一件事，别漏也别互相抄。
 - **个人数据一律不进仓库**（对话原文、真实笔记、截图、用户给的原始文档）——
