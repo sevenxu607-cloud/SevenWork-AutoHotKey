@@ -82,6 +82,12 @@ class SevenNoteModule {
         ; 改标签 = 文件改名：底栏的「🏷 标签」要跟着换（路径已在 TitleFeature 里更新）。
         EventBus.On("Title.Changed", (*) => NoteSessionService.PushMeta())
 
+        ; 切日期给一句「→ 已切换到 2026-10-23 周四」—— 旧版 StatusBar 就是这么反馈的。
+        ; 底栏 2.2 秒后自动清空（由前端负责），这里只负责推。
+        EventBus.On("Date.Switched", (d) => SevenNoteModule._PushStatus(
+            {text: "→ 已切换到 " . d.date . " " . NoteStoreService.GetWeekday(d.date)
+                , kind: "info"}))
+
         ; ⚠ 字体 / 字号偏好必须在这里显式加载 —— 全项目没有第二处调它。
         ;   从前 `FontService.Apply()` 开头就 `if !State.GetEd() return`，而这个调用
         ;   压根不存在，于是用户在旧版调过的字号（[Appearance] FontSizeIndex）

@@ -6,8 +6,16 @@
    ═══════════════════════════════════════════════════════════════════════ */
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { Editor, rootCtx, defaultValueCtx, editorViewCtx } from '@milkdown/kit/core'
-import { commonmark } from '@milkdown/kit/preset/commonmark'
-import { gfm } from '@milkdown/kit/preset/gfm'
+import {
+  commonmark,
+  inputRules as cmInputRules,
+  markInputRules as cmMarkInputRules,
+} from '@milkdown/kit/preset/commonmark'
+import {
+  gfm,
+  inputRules as gfmInputRules,
+  markInputRules as gfmMarkInputRules,
+} from '@milkdown/kit/preset/gfm'
 import { listener, listenerCtx } from '@milkdown/kit/plugin/listener'
 import { history } from '@milkdown/kit/plugin/history'
 import { upload, uploadConfig } from '@milkdown/kit/plugin/upload'
@@ -32,6 +40,21 @@ let disposed = false
 // prev 是显示态（图片 src 带 vault.local 前缀），跟存储态永远不相等，
 // 那样每次敲键都会 emit 一遍，App.vue 的存盘也跟着白跑。
 let lastStored = props.modelValue ?? ''
+
+/* ⚠ 打字时不自动改格式。
+   Milkdown 的 commonmark / gfm 预设各带一组 input rules（`# ` → 标题、`- ` → 列表、
+   `**x**` → 加粗、`---` → 分隔线、``` ``` ``` → 代码块…）。旧版是纯文本 RichEdit，
+   `#` 就是字符；用户反馈「打着打着字体自己变，没法保持一种格式」。
+   这里把这些插件从预设里滤掉 —— **已存文件里的 Markdown 仍照常渲染**，
+   只是输入过程不再擅自改写格式。*/
+const autoFormatPlugins = new Set<unknown>([
+  ...cmInputRules,
+  ...cmMarkInputRules,
+  ...gfmInputRules,
+  ...gfmMarkInputRules,
+])
+const withoutAutoFormat = (plugins: unknown[]) =>
+  plugins.filter((p) => !autoFormatPlugins.has(p)) as never[]
 
 onMounted(async () => {
   const mark = (s: string) => { ;(window as any).__noteStage = s }
@@ -74,8 +97,8 @@ onMounted(async () => {
         },
       }))
     })
-    .use(commonmark)
-    .use(gfm)
+    .use(withoutAutoFormat(commonmark))
+    .use(withoutAutoFormat(gfm))
     .use(listener)
     .use(history)
     .use($prose(() => dropCursor()))

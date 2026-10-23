@@ -400,7 +400,12 @@ class WebWindow {
         if IsObject(fn)
             WebHostService.Bind("ahk", fn(), this._hwnd)
 
-        url := "/index.html" . (this._view = "" ? "" : "?view=" . this._view)
+        url := "/index.html?" . (this._view = "" ? "" : "view=" . this._view . "&")
+            . "_=" . A_TickCount
+        ; ⚠ 末尾那个 `_=` 是**防缓存**用的，不是装饰：WebView2 会把 app.local 的
+        ;   index.html / index.css 缓存在 user data folder 里，构建后 URL 不变就可能
+        ;   一直加载旧文件 —— 表现成「改了前端、重启也没变」。
+        ;   本地文件重读一次的成本可以忽略，换一个参数换一份新构建。
         n := WebHostService.Navigate(url, this._hwnd)
         if !n.ok {
             LogError(this._title . " 导航失败：" . n.reason)

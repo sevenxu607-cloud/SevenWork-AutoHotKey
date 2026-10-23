@@ -56,6 +56,8 @@ const statusKind = ref<'ok' | 'info' | 'err'>('info')
  *  ⚠ 没有它的时候，内容没改动的保存（底栏仍写「无改动」）看起来像**按了没反应** ——
  *    文字没变，DOM 也没变。 */
 const statusSeq = ref(0)
+/** 状态行的自动清除定时器：旧版 StatusBar 的提示 2 秒后清空。 */
+let statusTimer: ReturnType<typeof setTimeout> | undefined
 
 /* ── 宿主（AHK）入口 ───────────────────────────────────────────────
    AHK 用 WebHostService.Eval('window.__swnote.setMarkdown("…")') 灌内容。
@@ -206,8 +208,19 @@ onMounted(() => {
     // 保存状态：AHK 侧推过来，底栏显示。kind 只认 ok / info / err 三档。
     setStatus: (text: string, kind?: string) => {
       statusText.value = String(text ?? '')
-      statusKind.value = kind === 'ok' ? 'ok' : kind === 'err' ? 'err' : 'info'
+      const k = kind === 'ok' ? 'ok' : kind === 'err' ? 'err' : 'info'
+      statusKind.value = k
       statusSeq.value += 1
+      // 旧版 StatusBar 的提示 2 秒后就清空（用户 2026-10-23 反馈「太死板」）。
+      // ⚠ 错误**不清**：那是要用户看见的；它会被下一次操作覆盖。
+      if (statusTimer) clearTimeout(statusTimer)
+      statusTimer = undefined
+      if (k !== 'err') {
+        statusTimer = setTimeout(() => {
+          statusTimer = undefined
+          statusText.value = ''
+        }, 2200)
+      }
       return 'ok'
     },
     // 给 AHK 探针看的状态：ready = 编辑器建好，loaded = 真的灌过一篇文档
