@@ -10,6 +10,7 @@
 | 任何 `.ahk` | 上面 + 语法预检（见下） |
 | 会建窗口 / 读配置的 | 上面 + 真机启动（见下） |
 | 只改文档 | `tools\check-docs.ps1` |
+| 改 `.clinerules` / `docs` / `README` | `tools\check-docs.ps1` + [`05-records.md`](05-records.md) 的收尾清单 |
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\run-tests.ps1
@@ -137,6 +138,10 @@ Get-Process AutoHotkey64 | Stop-Process -Force        # 收工，别留实例
   （会污染 VS Code 的「问题」面板），**更别写进仓库**（会进 `git status`）；
 - 清理：`Remove-Item "$env:TEMP\SevenWorkDev" -Recurse -Force`；
 - 提交信息用**简体中文短句**，说清「做了什么」，不加 `feat:` / `fix:` 前缀。
+- **提交前过一遍 [`05-records.md`](05-records.md) 的「每次会话结束：固定动作」** ——
+  状态卡 / 经验包 / 意图书 / 对话档案，四份各管一件事，别漏也别互相抄。
+- **个人数据一律不进仓库**（对话原文、真实笔记、截图、用户给的原始文档）——
+  存到仓库外的资料根，位置见 `05-records.md` 的「存储位置」。
 
 ## PowerShell 两个坑
 
