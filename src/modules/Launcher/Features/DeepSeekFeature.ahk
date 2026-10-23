@@ -384,10 +384,11 @@ class DeepSeekFeature {
         ; ⚠ 这条广播管的是笔记窗口，不是浏览器：浏览器的露面时机由它自己的宿主掌握。
         EventBus.Emit("Launcher.Preparing")
         WinShow("ahk_id " . hwnd)
-        ; ⚠ WinShow 之后必须再 WinRestore：Chromium 的窗口被 WinHide 藏起来后会把自己
-        ;   标记成「最小化」—— 本机实测再按 Alt+X 呼出时 iconic=1、rect 停在
-        ;   -32000,-32000 237x39 的停放位，而 WinShow 不解除最小化，于是「窗口没回来」。
-        WinRestore("ahk_id " . hwnd)
+        ; ⚠ WinRestore 只在「已最小化」时才有意义。Chromium 窗口被 WinHide 藏起来后
+        ;   有可能把自己标成最小化，也可能只是普通隐藏 —— 后者照样调 WinRestore 会抛
+        ;   Target window not found（_error.log 里反复出现，而窗口其实已经回来了）。
+        if DllCall("user32\IsIconic", "ptr", hwnd, "int")
+            WinRestore("ahk_id " . hwnd)
         WinActivate("ahk_id " . hwnd)
         try {
             WinSetAlwaysOnTop("On", "ahk_id " . hwnd)

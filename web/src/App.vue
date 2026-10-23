@@ -4,7 +4,7 @@ import NoteEditor from './components/NoteEditor.vue'
 import GlassLab from './components/GlassLab.vue'
 import PanelView from './components/PanelView.vue'
 import PromptView from './components/PromptView.vue'
-import { isHosted, ahkCall, applyTheme, type Theme } from './ahk'
+import { isHosted, ahkCall, applyTheme, markReady, type Theme } from './ahk'
 
 /* ── 页面切换：现在是五个视图，模块化路由留到 S3 ─────────────────── */
 // 支持 ?view=note 直达 —— 真机验证与将来从 AHK 唤起特定页面都用得上
@@ -32,38 +32,26 @@ const themeName = ref('—')
 const err = ref('')
 const text = ref('')
 
-/* ── 笔记页 ─────────────────────────────────────────────────────── */
-// 演示内容：把 gfm 的能力一次点齐，构建后一眼能看出哪块没渲染
-const DEMO_MD = [
-  '# 笔记编辑器',
-  '',
-  'Milkdown 在 SevenWork 里的第一次落地。**粗体**、*斜体*、`行内代码` 全走 Markdown 原生语法。',
-  '',
-  '## 验证清单',
-  '',
-  '- [x] 直接敲 Markdown，实时格式化',
-  '- [ ] 粘贴截图（Ctrl+V 贴一张图试试）',
-  '- [ ] 拖一张图片进来',
-  '',
-  '> 图片在 WebView2 里落盘成正文件，Markdown 只留相对路径；',
-  '> 浏览器预览模式退回内联 data URL，方便单独调样式。',
-  '',
-  '```ts',
-  'const src = await storeImage(file)',
-  '```',
-  '',
-  '| 能力 | 来源 |',
-  '| --- | --- |',
-  '| 表格 | GFM |',
-  '| 任务列表 | GFM |',
-  '| 代码块 | CommonMark |',
-  '',
-  '---',
-  '',
-  '正文到此。',
-].join('\n')
+/* ── 笔记页 ───────────────────────────────────────────────────────
+   ⚠ **不预置任何演示内容。**
+     从前这里塞了一篇「笔记编辑器 / 验证清单 / 表格」的样例，本意是构建后一眼
+     能看出哪块没渲染；真机上它的实际效果是：首次载入失败、或页面被重新导航，
+     屏幕上就是一整篇网页示例，而用户以为那是自己的笔记 —— 更糟的是保存链路
+     会把它写进当天的 .md。要验渲染就在浏览器里 `?view=lab`，别拿真实窗口当样板。 */
+const noteMd = ref('')
 
-const noteMd = ref(DEMO_MD)
+/** 是否已经真正载入过一篇文档（AHK 推 setMarkdown 成功后才置 true）。
+ *  ⚠ 少了它，「编辑器是空的」与「还没载入」分不出来：前者该拦住保存，
+ *    否则一次读取失败就能把用户那一篇覆盖成空。 */
+let docLoaded = false
+
+/* ── 底栏状态行 ──────────────────────────────────────────────────
+   AHK 侧保存完会推一行过来（`__swnote.setStatus(text, kind)`）：
+   已保存 HH:mm / 无改动 / 空笔记不落盘 / 保存失败：xxx。
+   ⚠ 从前底栏只有字数，保存失败和「其实没存」在界面上完全看不出来 ——
+     用户按完 Ctrl+S 只能靠猜。 */
+const statusText = ref('')
+const statusKind = ref<'ok' | 'info' | 'err'>('info')
 
 /* ── 宿主（AHK）入口 ───────────────────────────────────────────────
    AHK 用 WebHostService.Eval('window.__swnote.setMarkdown("…")') 灌内容。
@@ -73,14 +61,19 @@ const editorRef = ref<any>()
 let pendingMd = ''
 
 function onEditorReady() {
+  // 编辑器建好 = 笔记视图首屏落定。⚠ 必须放在下面那个提前 return **之前** ——
+  // 没有待灌内容时（打开当天的空笔记）pendingMd 是空串，早退会让 AHK 白等到超时。
+  markReady()
   if (!pendingMd) return
   const md = pendingMd
-  pendingMd = ''
-  try {
-    editorRef.value?.setMarkdown(md)
-  } catch (e) {
-    ;(window as any).__swnoteLastError = 'ready: ' + String(e)
+  const r = String(editorRef.value?.setMarkdown(md))
+  if (r !== 'ok') {
+    // 还是没灌进去：继续挂着，等下一次 ready / AHK 重推
+    ;(window as any).__swnoteLastError = 'ready: ' + r
+    return
   }
+  pendingMd = ''
+  docLoaded = true
 }
 
 function setMarkdown(md: string): string {
@@ -88,6 +81,7 @@ function setMarkdown(md: string): string {
   //   "null"，Eval 就判成失败，整次灌入看起来没执行。
   // ⚠ 异常也要自己兜住并转成字符串 —— 抛出去的异常同样变成 "null"，
   //   只剩「脚本返回 null」这句，查不出到底是哪一步坏的。
+  // ⚠ 只有返回 'ok' 才算「真的换上了」：AHK 侧据此才提交日期、才允许保存。
   try {
     noteMd.value = md
     const r = String(editorRef.value?.setMarkdown(md))
@@ -95,6 +89,8 @@ function setMarkdown(md: string): string {
       pendingMd = md
       return 'pending:' + r
     }
+    pendingMd = ''
+    docLoaded = true
     return 'ok'
   } catch (e) {
     return 'ERR ' + String(e)
@@ -113,31 +109,36 @@ function onKeydown(e: KeyboardEvent) {
   if (!el) return
   const k = e.key.toLowerCase()
 
-  // Ctrl+T：追加时间戳（另起一段，前面空一行，与旧版排版一致）
+  // Ctrl+T：另起一段写时间戳（旧版就是手动插入，程序从不自动补）
   if (e.ctrlKey && !e.altKey && !e.shiftKey && k === 't') {
     e.preventDefault()
     const now = new Date()
     const hh = String(now.getHours()).padStart(2, '0')
     const mm = String(now.getMinutes()).padStart(2, '0')
-    el.insertText(`\n\n🕐 ${hh}:${mm}\n`)
+    // ⚠ 走 insertBlockAfter 而不是插字符串：文本节点里的 `\n` 不是换行，
+    //   塞进去只会变成一段带 `🕐 HH:mm` 的普通文字，下次打开才露馅。
+    el.insertBlockAfter('paragraph', `🕐 ${hh}:${mm}`)
     return
   }
-  // Ctrl+H：动态分隔线
+  // Ctrl+H：分隔线（真正的 hr 节点，不是一行 `---` 文本）
   if (e.ctrlKey && !e.altKey && !e.shiftKey && k === 'h') {
     e.preventDefault()
-    el.insertText('\n\n---\n\n')
+    el.insertBlockAfter('hr')
     return
   }
-  // Ctrl+Shift+H：分段标题
+  // Ctrl+Shift+H：二级标题
   if (e.ctrlKey && !e.altKey && e.shiftKey && k === 'h') {
     e.preventDefault()
-    el.insertText('\n\n## 新分段\n\n')
+    el.insertBlockAfter('heading', '新分段')
     return
   }
-  // Tab：缩进四空格（与旧 RichEdit 版一致；Markdown 里缩进就是空格）
+  // Tab / Shift+Tab：列表内改层级，段落内增删行首四空格
+  // ⚠ 从前这里只认 Tab、不看 shiftKey —— Shift+Tab 也走进来插了四个空格，
+  //   等于「反缩进」这个功能根本不存在（PROJECT-OVERVIEW 里却写着有）。
   if (!e.ctrlKey && !e.altKey && e.key === 'Tab') {
     e.preventDefault()
-    el.insertText('    ')
+    if (e.shiftKey) el.outdent()
+    else el.indent()
   }
 }
 
@@ -151,8 +152,30 @@ onMounted(() => {
   window.addEventListener('keydown', onKeydown, true)
   ;(window as any).__swnote = {
     setMarkdown,
-    getMarkdown: () => editorRef.value?.getMarkdown() ?? noteMd.value,
+    // ⚠ 没载入过文档就返回空串：AHK 侧把它当「这次不许存」。
+    //   从前这里兜底 `?? noteMd.value` —— 首次载入失败时 noteMd 里还是那篇
+    //   演示内容，于是「什么都没打开」也能被当成一次正常保存写进当天的 .md。
+    getMarkdown: () => (docLoaded ? (editorRef.value?.getMarkdown() ?? noteMd.value) : ''),
     getChars: () => noteMd.value.length,
+    // 编辑命令也挂出来：Tab / Ctrl+H / Ctrl+T / Ctrl+Shift+H 走的就是这几个，
+    // 探针与 AHK 可以直接调它验证行为，不必模拟键盘事件。
+    insertBlockAfter: (kind: string, text?: string) =>
+      editorRef.value?.insertBlockAfter(kind, text ?? '') ?? 'no-editor',
+    indent: () => editorRef.value?.indent() ?? 'no-editor',
+    outdent: () => editorRef.value?.outdent() ?? 'no-editor',
+    // 保存状态：AHK 侧推过来，底栏显示。kind 只认 ok / info / err 三档。
+    setStatus: (text: string, kind?: string) => {
+      statusText.value = String(text ?? '')
+      statusKind.value = kind === 'ok' ? 'ok' : kind === 'err' ? 'err' : 'info'
+      return 'ok'
+    },
+    // 给 AHK 探针看的状态：ready = 编辑器建好，loaded = 真的灌过一篇文档
+    getState: () =>
+      JSON.stringify({
+        ready: !!editorRef.value,
+        loaded: docLoaded,
+        chars: noteMd.value.length,
+      }),
     // 临时诊断：ref 到底绑上没有、expose 出来的是不是我们要的那几个方法
     diag: () => {
       const r: any = editorRef.value
@@ -163,6 +186,7 @@ onMounted(() => {
         getMarkdown: typeof r?.getMarkdown,
         noteLen: noteMd.value.length,
         pending: pendingMd.length,
+        loaded: docLoaded,
         dom: !!document.querySelector('.ProseMirror'),
         stage: (window as any).__noteStage ?? '(none)',
       })
@@ -173,6 +197,7 @@ onMounted(() => {
 onMounted(async () => {
   if (!hosted) {
     err.value = '浏览器预览模式：未注入 hostObjects，数据为占位'
+    markReady()
     return
   }
   try {
@@ -187,6 +212,9 @@ onMounted(async () => {
   } catch (e) {
     err.value = String(e)
   }
+  // 自检页 / 材质样板没有「首屏数据」这一步 —— 渲染完就算就绪。
+  // note 走 onEditorReady，panel / prompts 由各自组件在 load() 末尾放行。
+  if (view.value === 'self' || view.value === 'lab') markReady()
 })
 </script>
 
@@ -253,7 +281,10 @@ onMounted(async () => {
         <!-- v-model 是单向回吐：编辑器是唯一真源，不反向覆写它 -->
         <NoteEditor ref="editorRef" v-model="noteMd" @ready="onEditorReady" />
       </div>
-      <div class="note-foot">{{ noteMd.length }} 字</div>
+      <div class="note-foot">
+        <span v-if="statusText" class="st" :class="statusKind">{{ statusText }}</span>
+        <span class="wc">{{ noteMd.length }} 字</span>
+      </div>
     </main>
   </div>
 </template>
@@ -416,14 +447,40 @@ textarea:focus {
 }
 
 /* 底部状态行：对应原生版 `StatusBar` 的位置（原来显示日期 / 星期 / 标签）。
-   现在只留字数 —— 其余信息 AHK 侧没有往前端推，别在这儿假装有。 */
+   左边是保存状态（AHK 推来），右边是字数。 */
 .note-foot {
   flex: none;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
   padding: 6px 22px;
   font-size: 12px;
   color: var(--sw-dim);
   border-top: 1px solid var(--sw-border);
   background: var(--sw-bg-alt);
+}
+
+.note-foot .st {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 三档只用明度与一条左边框区分 —— 主题是无色的，别在这里引入红绿。 */
+.note-foot .st.ok {
+  color: var(--sw-fg);
+}
+
+.note-foot .st.err {
+  color: var(--sw-warn);
+  border-left: 2px solid var(--sw-warn-border);
+  padding-left: 8px;
+}
+
+.note-foot .wc {
+  flex: none;
+  opacity: 0.85;
 }
 
 .nav {

@@ -43,7 +43,10 @@ class SevenNoteModule {
         State.SetEd(0)
 
         ; ─── 窗口事件 ───
-        g.OnEvent("Close", (*) => (g.Hide(), true))
+        ; ⚠ 标题栏的 × 必须与 Alt+Z 走同一条路（WindowFeature.Hide）：
+        ;   从前是裸的 g.Hide() —— 绕过 `Window.BeforeHide`（保存）与位置记忆，
+        ;   用户点一下 × 就等于「这次编辑既不存盘、下次也从默认落点重开」。
+        g.OnEvent("Close", (*) => (WindowFeature.Hide(), true))
         g.OnEvent("Size", (guiObj, mm, w, h) => SevenNoteModule.OnSize(guiObj, mm, w, h))
 
         ; ═══ 挂载 Feature ═══
@@ -64,6 +67,18 @@ class SevenNoteModule {
         ; 换主题（Alt+T）时跟着变：平台只广播，窗口自己决定怎么响应 ——
         ; 这样删掉笔记模块，别的模块窗口照样跟着主题走。
         EventBus.On("Theme.Changed", (*) => SevenNoteModule._OnThemeChanged())
+
+        ; 字体 / 字号变了，走同一条重刷路径（NoteHostTheme 会把 --sw-ed-* 一起推过去）。
+        EventBus.On("Font.Changed", (*) => SevenNoteModule._OnThemeChanged())
+
+        ; 保存结果的可视反馈：底栏那一行。窗口没开时推送会失败，忽略即可。
+        EventBus.On("Note.Status", (data) => SevenNoteModule._PushStatus(data))
+
+        ; ⚠ 字体 / 字号偏好必须在这里显式加载 —— 全项目没有第二处调它。
+        ;   从前 `FontService.Apply()` 开头就 `if !State.GetEd() return`，而这个调用
+        ;   压根不存在，于是用户在旧版调过的字号（[Appearance] FontSizeIndex）
+        ;   一直躺在配置里没用上，新编辑区永远 14pt。
+        FontService.LoadFromConfig()
     }
 
     ; 换主题：窗口底色 + 标题栏 + 推给前端页面。
@@ -87,6 +102,23 @@ class SevenNoteModule {
         if this._mounted
             WebHostService.Eval("window.__sevenwork&&window.__sevenwork.applyTheme("
                 . NoteHostTheme() . ")", g.Hwnd)
+    }
+
+    ; 把一行状态推到页面底栏（保存成功 / 无改动 / 失败）。
+    ;
+    ; ⚠ 显式传 hwnd：面板与提示词库各有一份 WebView2，无参会落到最近挂载的那个窗口上。
+    ; ⚠ 前端没起来时 Eval 返回 {ok:false}，这里**不记日志** —— 冷启动阶段底栏还没渲染，
+    ;   每次按 Alt+Z 都刷一条错误只会把真问题淹掉。
+    static _PushStatus(data) {
+        if !this._mounted || !IsObject(data)
+            return
+        hwnd := State.GetGuiHwnd()
+        if !hwnd
+            return
+        text := data.HasProp("text") ? data.text : ""
+        kind := data.HasProp("kind") ? data.kind : "info"
+        WebHostService.Eval("window.__swnote&&window.__swnote.setStatus("
+            . JsText.Escape(text) . "," . JsText.Escape(kind) . ")", hwnd)
     }
 
     static _AfterShown() {

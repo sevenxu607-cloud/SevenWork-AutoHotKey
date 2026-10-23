@@ -36,6 +36,13 @@ class WebPanelUI {
     }
 
     ; ─── Alt+S ─────────────────────────────────────────────────────────
+    ; 两种语义，靠 moduleId 区分：
+    ;   · **裸调用**（Alt+S 热键）= 随手键 → 开关。第一次打开、再按收起。
+    ;     旧版只在「打开 / 切页」上做文章，面板开着时按 Alt+S 毫无反应 ——
+    ;     用户只能改按 Esc 或右上角的 ×，与 .clinerules/02「Alt+S 是随手按的键」
+    ;     那句话正好相反（那里的 `Hide` 而不是 `Destroy` 也是为这个准备的）。
+    ;   · **带 moduleId**（模块发的 Panel.OpenRequested）= 明确的「打开我这一页」，
+    ;     **永远不关窗** —— 请求方要的是看见自己的设置，关掉等于把请求吞了。
     static ShowHelp(moduleId := "") {
         ; 目标页记下来：页面 onMounted 会从 getPanel 的 focus 字段读，
         ; 不依赖「导航完再 Eval」的时序（那次可能落在脚本就绪之前，静默丢掉）。
@@ -44,12 +51,16 @@ class WebPanelUI {
         if !IsObject(this._win)
             this._win := this._NewWindow()
 
-        if this._win.IsOpen() {
-            this._win.Activate()
-            ; 已经开着 → 页面早就在跑，直接让它切页（首次打开那股走 focus）
-            if (moduleId != "")
+        if this._win.IsShown() {
+            if (moduleId != "") {
+                this._win.Activate()
+                ; 已经开着 → 页面早就在跑，直接让它切页（首次打开那股走 focus）
                 WebHostService.Eval("window.__swpanel&&window.__swpanel.goto("
                     . JsText.Escape(moduleId) . ")", this._win.Hwnd())
+                return
+            }
+            ; 裸 Alt+S = 收起。窗口是 Hide 不是 Destroy，再按一次回来还停在原页。
+            this._win.Close()
             return
         }
         this._win.Open()

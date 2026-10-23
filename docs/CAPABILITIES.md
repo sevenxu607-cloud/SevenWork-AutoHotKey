@@ -23,7 +23,8 @@ src/WorkBench/
 │  │  └─ ExplorerProbe.ahk     按真实路径找资源管理器窗口 + 读选中项
 │  └─ Document/
 │     ├─ PandocRunner.ahk      单文件格式转换（pandoc 定位 + 调用）
-│     └─ DocxHeadingFix.ahk    docx 自定义标题样式名 → pandoc 认得的 heading N
+│     └─ DocxHeadingFix.ahk    docx 预处理：标题样式名 → heading N + 编号固化入口
+│        DocxNumberFix.ahk     把 Word 的自动标题编号（第 1 章 / 1.1 / 1））写成文字
 ├─ Services/                   平台服务：业务策略，**可读 Config / State**
 │  └─ ThemeService.ahk         主题表（当前只留「琉璃 · 极光霜」）+ 语义色板 Palette()
 ├─ Coordinator/                跨模块协调：读业务上下文、发事件、算几何
@@ -282,13 +283,18 @@ H1/H2 会写成「标题 + `====` 下划线」，多数编辑器的大纲面板�
 
 ---
 
-### 4.7 `DocxHeadingFix`（docx 标题样式名规范化）
+### 4.7 `DocxHeadingFix` / `DocxNumberFix`（docx 预处理）
 
 ```ahk
-DocxHeadingFix.Prepare(src, workDir)      ; → {ok:true, path, changed, cleanup} / {ok:false, reason}
+DocxHeadingFix.Prepare(src, workDir)      ; → {ok:true, path, changed, numbered, warnings, cleanup} / {ok:false, reason, detail}
 DocxHeadingFix.FixStyles(xml)             ; → {xml, count}（纯函数，改 styles.xml 文本）
 DocxHeadingFix.LevelOf(styleName)         ; → 1..9 / 0（0 = 不是标题样式，或已是 heading N）
+
+DocxNumberFix.FixDocument(docXml, stylesXml, numXml)  ; → {ok, xml, numbered, skipped, warnings}
+DocxNumberFix.StripStyleNumbering(stylesXml)          ; → {xml, stripped}
 ```
+
+`Prepare` 一次做两件事：**把自动标题编号固化成文字** + **把自定义样式名规范化成 `heading N`**。
 
 **为什么需要它**：pandoc 的 docx reader 只把 `w:name` 为 `heading 1`..`heading 9` 的样式
 当标题。国内课件爱自定义「二级标题」「三级标题」「半括号标题（五级）」「圆括号标题（六级标题）」
@@ -308,8 +314,10 @@ DocxHeadingFix.LevelOf(styleName)         ; → 1..9 / 0（0 = 不是标题样�
 **做法**：不改源文件。`tar.exe -xf` 解到 `workDir` → 改 `word/styles.xml` 里那几个
 `<w:name w:val="…"/>` → `tar.exe -a -cf` 打回 `.zip` 再改名 `.docx` → 交给 `PandocRunner`。
 
-- `changed = 0` 表示这份文档没有需要改的样式 → `path` 返回 `src` 本身，`cleanup = false`；
-- `reason`：`bad-arg` / `no-tar` / `no-workdir` / `no-extract` / `no-styles` / `no-pack`。
+- `changed = 0 && numbered = 0` 表示这份文档既没有要改的样式名、也没有可固化的编号 →
+  `path` 返回 `src` 本身，`cleanup = false`（省掉一次打包）；
+- `reason`：`bad-arg` / `no-tar` / `no-workdir` / `no-extract` / `no-styles` / `no-pack`
+  （`no-styles` 现在带 `detail`，否则一句 reason 看不出是读文件、编号固化还是改样式名出的问题）。
   调用方任何一种失败都**直接转原件**，转换照常进行；
 - `LevelOf` 的规则：`^heading [1-9]$` → 0（不动）；`N级标题` → N；`（N级` → N；
   `^标题 [1-9]$` → N。字符样式（`w:type="character"`）一律不动。
@@ -321,6 +329,32 @@ DocxHeadingFix.LevelOf(styleName)         ; → 1..9 / 0（0 = 不是标题样�
 - 输出 zip 必须在**被打包目录之外**，否则会把自己也打进去；
 - 依赖 Windows 10 1803+ 自带的 `bsdtar`（`C:\Windows\System32\tar.exe`）。AHK v2 没有 zip
   能力，这是最少依赖的一条路。实测 23MB 课件：解压 148ms + 打包 760ms。
+
+**编号固化（`DocxNumberFix`）**：Word 的「第 1 章 / 1.1 / 1）」不是正文文字，而是
+「样式 → `numPr` → `numbering.xml` 的多级模板」渲染出来的；pandoc 只取段落文字，
+模板编号整体消失 —— 标题层级还在（`##`），编号全没了。
+
+`Prepare` 里的顺序是**固化编号 → 删样式编号 → 改样式名**，三步不能换：
+
+1. `FixDocument` 按 `lvlText`（`第 %1 章`、`%1.%2`、`（%6）`…）逐级算编号，写进标题段落
+   第一个 `w:t`，同时把该段落 `numPr` 改成 `numId=0`；
+2. `StripStyleNumbering` 删掉标题样式上的 `numPr`；
+3. `FixStyles` 才把样式名改成 `heading N`。
+
+- ⚠ **必须靠样式名判断标题，所以要放在改名之前**：「半括号标题（五级）」一旦变成
+  `heading 5`，`LevelOf()` 返回 0，这些标题的编号会静默漏掉；
+- ⚠ **只固化编号不够，还得清 numPr**：实测只做第 1 步时 pandoc 仍把标题当 `OrderedList`，
+  整篇输出成「1. NLP导论 / 1. 定义」，一个标题都没有；
+- ⚠ `numId=0` 是「显式取消编号」：遇到它**不补号、也不推进计数**，否则本无编号的标题
+  会冒出序号、后面的编号整体错位（实测样本里的「完整案例如下：」）；
+- 只处理标题样式，`bullet` 级别跳过 —— 那是真列表，交给 pandoc；
+- 不认识的编号格式（罗马数字等）按十进制写入，并在 `warnings` 里留一条；
+- ⚠ 切段落时 `last` 必须按**原始长度**推进：`_ClearNumbering` 会改长段落，用改后的长度
+  让后续切片错位，产出的 docx 结构损坏 —— pandoc 只给一句 `couldn't parse docx file: DocxError`。
+
+实测（2026-10-23，同一份 23MB NLP 课件）：223 个标题、编号逐级对上
+（`# 第 1 章 NLP导论` / `## 1.1 定义` / `### 1.2.1 文本分类` / `##### 1）安装pytorch`），
+`完整案例如下：` 保持无编号，155 张图与相对路径不变。
 
 ---
 

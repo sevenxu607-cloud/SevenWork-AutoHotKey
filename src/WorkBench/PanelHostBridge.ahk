@@ -41,6 +41,15 @@ ThemeJson() {
         . '"bgAlpha":'  . p.bgAlpha . ","
         . '"style":'    . JsText.Escape(p.style)  . ","
         . '"material":' . ThemeMaterialJson(p.material)
+        ; 全局外观覆盖（「外观」模块写的四项）—— 前端把它们写成
+        ; --sw-radius-lg / --sw-dur-* / 密度变量。**必须在这里透传**：
+        ; 少一个字段，面板里调完保存后界面纹丝不动，而日志里什么都没有。
+        . ',"radius":'  . p.radius
+        . ',"motion":'  . JsText.Escape(p.motion)
+        . ',"density":' . JsText.Escape(p.density)
+        . ',"durFast":' . JsText.Escape(p.durFast)
+        . ',"dur":'     . JsText.Escape(p.dur)
+        . ',"durSlow":' . JsText.Escape(p.durSlow)
         . "}"
 }
 
@@ -269,6 +278,13 @@ class PanelData {
                 . ',"kind":'    . JsText.Escape(f.HasProp("kind") ? f.kind : "text")
                 . ',"value":'   . JsText.Escape(f.HasProp("value") ? f.value : "")
                 . ',"placeholder":' . JsText.Escape(f.HasProp("placeholder") ? f.placeholder : "")
+                ; 以下四项给 select / range 用，text / folder 一律给空值 ——
+                ; 前端按 kind 选控件，不认识这些字段也不会出错（只是没用上）。
+                . ',"options":' . this._OptionsJson(f.HasProp("options") ? f.options : "")
+                . ',"min":'     . JsText.Escape(f.HasProp("min") ? ("" . f.min) : "")
+                . ',"max":'     . JsText.Escape(f.HasProp("max") ? ("" . f.max) : "")
+                . ',"step":'    . JsText.Escape(f.HasProp("step") ? ("" . f.step) : "")
+                . ',"unit":'    . JsText.Escape(f.HasProp("unit") ? f.unit : "")
                 . "}"
         }
 
@@ -276,6 +292,21 @@ class PanelData {
             . ',"hint":' . JsText.Escape(spec.HasProp("hint") ? spec.hint : "")
             . ',"hasApply":' . (spec.HasProp("apply") ? "true" : "false")
             . ',"fields":[' . body . "]}"
+    }
+
+    ; select 字段的候选值 → JSON 字符串数组。
+    ; 用「值即显示」：不另存 key，前端少一层映射，模块也不必维护一份 id→label 表。
+    ; 没有 options（text / folder / range）一律给 []。
+    static _OptionsJson(opts) {
+        if !IsObject(opts)
+            return "[]"
+        out := ""
+        i := 0
+        for o in opts {
+            i += 1
+            out .= (i > 1 ? "," : "") . JsText.Escape("" . o)
+        }
+        return "[" . out . "]"
     }
 
     ; ─── 模块行 ────────────────────────────────────────────────────────

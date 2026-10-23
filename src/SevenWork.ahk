@@ -97,6 +97,9 @@ Persistent()
 ; 规范成 pandoc 认得的 `heading N` —— 不然整篇会被当成嵌套有序列表、一个标题都出不来。
 ; 只读源文件，改的是临时副本；tar.exe 缺失 / 解压失败时返回 {ok:false}，调用方转原件。
 #Include WorkBench\Capabilities\Document\DocxHeadingFix.ahk
+; DocxNumberFix：把 Word 的自动标题编号（「第 1 章 / 1.1 / 1）」）固化成文字。
+; 编号不是正文，而是样式 → numbering.xml 的模板 —— pandoc 只取文字，编号整体消失。
+#Include WorkBench\Capabilities\Document\DocxNumberFix.ahk
 ; WebHostService：把 WebView2 挂到任意 hwnd 上，并把目录映射成虚拟主机。
 ; 笔记编辑区（v2.9 起）就是它 —— Mount / Navigate / Eval / Resize 全在这里。
 #Include WorkBench\Capabilities\Web\WebHostService.ahk
@@ -125,6 +128,10 @@ Persistent()
 
 
 #Include modules\SevenNote\Services\NoteStoreService.ahk
+
+; 笔记会话：当前日期 / 实际路径 / 是否已载入，以及 Open / Save 两个动作。
+; Feature 之间「先存盘再切走」从此不用互相调用 —— 都问它要结果。
+#Include modules\SevenNote\Services\NoteSessionService.ahk
 
 
 #Include modules\SevenNote\Services\PandocService.ahk
@@ -274,6 +281,18 @@ Persistent()
 #Include modules\Folders\Features\FolderWindowFeature.ahk
 #Include modules\Folders\Features\ConvertFeature.ahk
 #Include modules\Folders\FoldersModule.ahk
+
+
+; ═══════════════════════════════════════════════════════════════════════════
+;  MODULE 模块层 · Theme（外观）
+; ═══════════════════════════════════════════════════════════════════════════
+; ⚠ 这不是「主题本身」—— 主题运行期仍在 WorkBench\Services\ThemeService，
+;   本模块只是让用户在 Alt+S 面板里调**全局外观参数**的入口。
+;   删掉它，所有窗口照样上色（只是没法调）；反过来让 ThemeService 调本模块
+;   就是 Service → Module 的反向依赖，.clinerules/02 禁止。
+; 没有热键、没有窗口：参数由 ThemeService 读色板时合并，广播走 Theme.Changed。
+
+#Include modules\Theme\ThemeModule.ahk
 
 
 ; ═══════════════════════════════════════════════════════════════════════════

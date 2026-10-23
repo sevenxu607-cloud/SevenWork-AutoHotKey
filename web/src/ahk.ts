@@ -61,6 +61,19 @@ export interface Theme {
   /** 材质风格：glass = 琉璃；缺省或其它值 = flat（现有米黄外观） */
   style?: string
   /**
+   * 板面圆角（逻辑像素）—— 由「外观」模块的全局设置给，AHK 算好再推来。
+   * 缺省时用 tokens.css 的 --sw-radius-lg。
+   */
+  radius?: number
+  /** 动效档：标准 / 轻量 / 关闭。只用于指纹与显示，实际时长看下面三个 */
+  motion?: string
+  /** 界面密度：标准 / 紧凑 —— 写成 html[data-density]，CSS 按它调间距 */
+  density?: string
+  /** 动效时长。⚠ 由 AHK 按 motion 档算好：换算表只写一处（ThemeService._MotionMs） */
+  durFast?: string
+  dur?: string
+  durSlow?: string
+  /**
    * 编辑区字体名（笔记模块的 FontService 给，如「楷体」）。
    * 只作用于编辑区（--sw-ed-font）；面板那类网页仍用系统 UI 字体。
    */
@@ -75,13 +88,100 @@ export interface Theme {
   material?: Record<string, string>
 }
 
+/* ── 主题应用状态（模块级）──────────────────────────────────────────────
+   · appliedKey：上一次**完整**应用的指纹（色板 + 材质 + 字体）。
+     唯一作用：幂等 —— AHK 建窗推一次、页面 onMounted 再拉一次，同一套主题
+     不该重绘两遍（重绘还会白跑一次过场，看起来像窗口自己闪了一下）。
+   · visualKey：上一套主题的**视觉**指纹（不含字体 / 字号）。
+     字体是编辑区的私事：换字体只需重写变量，让整窗交叉溶解一次纯属噪音。
+   · themeSeq：应用序号。切主题走 View Transition 时 paint / done 都是**异步**
+     回调；快速连按 Alt+T 时，前一回过场的 finished 可能后到 —— 它会按旧参数
+     重画一遍、还会把新一回刚加的 .theming 摘掉。序号让过期回调自己退场。
+   · lastMaterialKeys：上一次由 material 写进 <html> 的变量名。
+     ⚠ 必须记住并逐个移除 —— 只写不清的话，A 主题的 --sw-blur 会残留到
+       不提供该字段的 B 主题上，B 看起来就像「参数根本没生效」，而且极难查。 */
+let appliedKey = ''
+let visualKey = ''
+let themeSeq = 0
+let lastMaterialKeys: string[] = []
+
+/* 材质键白名单。
+   ⚠ 原来那支 /^[a-z][a-z0-9-]*$/ 只约束**格式**、不约束**是不是我们的变量**：
+     主题表里一个笔误就会写出一个永不生效的 --sw-xxx，排查时毫无线索。
+     这里只放 tokens.css 里真实定义过的材质类变量；新增材质变量时两处一起加。 */
+const MATERIAL_KEYS = new Set([
+  'tint',
+  'scrim',
+  'edge',
+  'edge-a',
+  'sheen',
+  'blur',
+  'sat',
+  'bright',
+  'frost',
+  'spec',
+])
+
+/**
+ * 视觉指纹：换它才值得播一次交叉溶解。
+ * ⚠ 必须覆盖 paint() **真正会写**的每一个字段 —— 少一个就会出现「主题换了、
+ *   界面没变」：因为完整指纹相同而被当成重复应用直接 return。
+ *   这里不含 font / fontSize（见 themeKey）。
+ */
+function visualKeyOf(t: Theme): string {
+  const m = t.material ?? {}
+  const mk = Object.keys(m)
+    .filter((k) => MATERIAL_KEYS.has(k))
+    .sort()
+    .map((k) => `${k}=${m[k]}`)
+    .join(',')
+  return [
+    t.name,
+    t.style ?? '',
+    t.win,
+    t.edBg,
+    t.text,
+    t.dim,
+    t.accent ?? '',
+    t.border ?? '',
+    t.codeBg ?? '',
+    String(t.dark ?? ''),
+    mk,
+    String(t.radius ?? ''),
+    t.motion ?? '',
+    t.density ?? '',
+  ].join('|')
+}
+
+/** 完整指纹 = 视觉指纹 + 字体 / 字号（字体变了要重写变量，但不必过场） */
+function themeKey(t: Theme): string {
+  return [visualKeyOf(t), t.font ?? '', String(t.fontSize ?? '')].join('#')
+}
+
 /** AHK 推主题：__sevenwork.applyTheme({name, win, edBg, text, dim, accent, style, material}) */
 export function applyTheme(t: Theme): void {
   const root = document.documentElement
   const r = root.style
   const hex = (v: string) => (v.startsWith('#') ? v : '#' + v)
 
+  // 同一套主题重复应用：不重绘、不过场（见 appliedKey 的说明）
+  const key = themeKey(t)
+  if (key === appliedKey) return
+  const prevVisual = visualKey
+  const nextVisual = visualKeyOf(t)
+  const firstApply = appliedKey === ''
+  appliedKey = key
+  visualKey = nextVisual
+
+  // 只有字体 / 字号变了：重写变量即可，让整窗溶解一次纯属噪音
+  const needTransition = !firstApply && nextVisual !== prevVisual
+
+  // 序号：任何异步回调（View Transition 的 finished、兜底定时器）都要先比对它，
+  // 过期就退场 —— 否则连按两次 Alt+T 会看到「后一个主题被前一个覆盖回去」。
+  const seq = ++themeSeq
+
   const paint = () => {
+    if (seq !== themeSeq) return
     r.setProperty('--sw-bg', hex(t.edBg))
     r.setProperty('--sw-bg-alt', hex(t.win))
     r.setProperty('--sw-fg', hex(t.text))
@@ -99,13 +199,36 @@ export function applyTheme(t: Theme): void {
     r.setProperty('--sw-ring', hexToRgba(t.accent ?? t.dim, 0.3))
     root.dataset.theme = t.name
 
-    // 材质：键名白名单化后再写，避免 AHK 推来个奇怪键名污染 style
+    // ── 全局外观（「外观」模块的四项）────────────────────────────────────
+    // ⚠ 这些**必须**在 paint() 里写：它们和色板一样属于「一次应用」的结果，
+    //   漏写就会出现「面板里调完保存、界面纹丝不动」而日志一片空白。
+    // ⚠ 圆角只落到 --sw-radius-lg（板面）。控件那两档（--sw-radius /
+    //   --sw-radius-sm）不跟着放大 —— 板圆角 20px 而输入框也 20px 会变成药丸。
+    if (t.radius) r.setProperty('--sw-radius-lg', `${t.radius}px`)
+    if (t.durFast) r.setProperty('--sw-dur-fast', t.durFast)
+    if (t.dur) r.setProperty('--sw-dur', t.dur)
+    if (t.durSlow) r.setProperty('--sw-dur-slow', t.durSlow)
+    // 密度走 data 属性而不是变量：CSS 里要按它成组改间距 / 高度，
+    // 写成一堆 --sw-gap-* 反而要每个组件各认一遍。
+    if (t.density) root.dataset.density = t.density
+
+    // 材质：先撤掉上一套主题写过的覆盖，再按白名单写本套的。
+    // ⚠ 顺序不能反 —— 先写后清会把本套刚写的值一并删掉。
+    // ⚠ 只 removeProperty 自己写过的键，绝不 style.cssText = '' / removeAttribute('style')：
+    //   那会连 --sw-ed-font、--sw-ed-size 这些「非主题」状态一起抹掉。
+    for (const oldKey of lastMaterialKeys)
+      r.removeProperty(`--sw-${oldKey}`)
+    lastMaterialKeys = []
+
     root.dataset.style = t.style || 'flat'
     if (t.material) {
-      for (const key of Object.keys(t.material)) {
-        if (!/^[a-z][a-z0-9-]*$/.test(key)) continue
-        const v = t.material[key]
-        if (typeof v === 'string' && v) r.setProperty(`--sw-${key}`, v)
+      for (const mk of Object.keys(t.material)) {
+        if (!MATERIAL_KEYS.has(mk)) continue
+        const mv = t.material[mk]
+        if (typeof mv === 'string' && mv) {
+          r.setProperty(`--sw-${mk}`, mv)
+          lastMaterialKeys.push(mk)
+        }
       }
     }
 
@@ -118,6 +241,18 @@ export function applyTheme(t: Theme): void {
     if (t.fontSize) r.setProperty('--sw-ed-size', `${t.fontSize}pt`)
   }
 
+  // 首次应用没有「旧外观」可溶解 —— 直接落定。播了反而像页面自己闪了一下。
+  // 仅字体变化同理：视觉指纹没变，没有任何东西需要溶解。
+  if (!needTransition) {
+    paint()
+    // ⚠ 这一次应用已经把 themeSeq 推进了 —— 上一次过场的清理回调会因序号不符而退场。
+    //   而本分支**从不加** .theming，也就没人摘：它会永远留在 <html> 上，
+    //   整页的 transition / animation 从此全被禁掉（悬停、切页都没过渡，
+    //   重开窗口才恢复）。字体更新同样算一次完整应用，由它负责收尾。
+    if (root.classList.contains('theming')) root.classList.remove('theming')
+    return
+  }
+
   // 换主题走一次 View Transition：整窗交叉溶解，而不是逐个属性慢慢变。
   // ⚠ .theming 期间禁掉所有 transition/animation —— 不然后台那些 :hover 过渡
   //   会跟着一起触发，看起来像有人把整窗亮度拧了一遍。
@@ -125,12 +260,17 @@ export function applyTheme(t: Theme): void {
 
   // ⚠ 必须有兜底：View Transition 的 finished 在某些情况下不会 resolve
   //   （transition 被跳过 / 页面在后台）。只靠它摘 .theming 会把动画永久禁掉。
+  // ⚠ 每个出口都先比对 seq：过期的过场不得摘掉**新**过场的 .theming。
   let guard = 0
-  const done = () => {
-    window.clearTimeout(guard)
-    window.setTimeout(() => root.classList.remove('theming'), 40)
+  const clearTheming = () => {
+    if (seq === themeSeq) root.classList.remove('theming')
   }
-  guard = window.setTimeout(() => root.classList.remove('theming'), 900)
+  const done = () => {
+    if (seq !== themeSeq) return
+    window.clearTimeout(guard)
+    window.setTimeout(clearTheming, 40)
+  }
+  guard = window.setTimeout(clearTheming, 900)
 
   const reduce = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches
   const vt = (document as any).startViewTransition
@@ -256,10 +396,17 @@ export function toDisplayMarkdown(md: string): string {
 
 /** 反向：显示 URL → 相对路径。落盘的 markdown 必须是这一版 */
 export function toStoredMarkdown(md: string): string {
-  return md.replace(
+  let out = md.replace(
     /(!\[[^\]]*\]\()https:\/\/vault\.local\/([^)\s]+)(\))/g,
     '$1./$2$3',
   )
+  // ⚠ 分隔线：Milkdown 的 hr 序列化成 `***`，而旧版 RichEdit 的 Ctrl+H 写的是 `---`。
+  //   两者都是合法的 Markdown，但同一堆笔记里一半 `---` 一半 `***`，在 Obsidian
+  //   源码视图里就是「格式和以前不一样了」。这里统一回旧写法。
+  //   只认**独占一行**的 `***`（行内 `***粗斜体***` 不碰）；转成 `---` 后仍会被
+  //   Milkdown 解析成 hr —— 序列化保证块之间有空行，不会变成 setext 标题。
+  out = out.replace(/^[ \t]*\*{3,}[ \t]*$/gm, '---')
+  return out
 }
 
 /* ═══════════════════════════════════════════════════════════════════════
@@ -283,11 +430,19 @@ export interface PanelGroup {
 export interface PanelField {
   key: string
   label: string
-  /** "folder" = 带「浏览…」按钮；缺省 / "text" = 普通文本框 */
+  /** "folder" = 带「浏览…」；"select" = 下拉；"range" = 滑杆；缺省 / "text" = 文本框 */
   kind: string
   value: string
   /** 空输入框里的灰字提示，只显示、不进值 */
   placeholder: string
+  /** select 的候选值（值即显示）。非 select 一律是空数组 */
+  options?: string[]
+  /** range 的三个数字，字符串形式（前端 parseFloat）。非 range 是空串 */
+  min?: string
+  max?: string
+  step?: string
+  /** range 右侧的单位后缀，如 "px"；纯显示 */
+  unit?: string
 }
 
 export interface PanelSpec {
@@ -347,4 +502,20 @@ export async function applySettings(moduleId: string, values: string[]): Promise
   const pad = values.slice(0, 8)
   while (pad.length < 8) pad.push('')
   return String(await ahkCall<string>('saveSettings', moduleId, ...pad))
+}
+
+/* ═══════════════════════════════════════════════════════════════════════
+   首屏就绪信号 —— 给 AHK 的入场时机用
+   ═══════════════════════════════════════════════════════════════════════
+   AHK 侧（WebWindow._RevealWhenReady）轮询 `data-ready` 决定何时播入场。
+   ⚠ 为什么不再用「#app 有子元素」：那只说明 Vue 挂上了，而 PanelView 的 rows
+     还在 fetchPanel() 的路上 —— 这时播入场，画面会从空壳淡入、数据后到再跳
+     一次，比不播还难看。
+   ⚠ 各视图要在**首屏数据落定**后调它：成功、或者已进入可解释的失败态都算落定
+     —— 失败态也得让人看见错误，不能一直当作「没就绪」。
+   ⚠ 忘了调不会永久黑屏：AHK 有 4.8s 上限，到点照样播一次入场。
+   ═══════════════════════════════════════════════════════════════════════ */
+
+export function markReady(): void {
+  document.documentElement.dataset.ready = '1'
 }

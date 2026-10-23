@@ -6,29 +6,19 @@
 
 class LoadFeature {
     static Load() {
-        this.LoadDate(FormatTime(, "yyyy-MM-dd"))
+        return this.LoadDate(FormatTime(, "yyyy-MM-dd"))
     }
 
-    ; 切日期 / 跳转都走这里。调用方负责先发 Save.Requested 把当前这篇落盘 ——
-    ; Feature 之间不互相调用，这里不替别人做决定。
-    static LoadDate(date) {
-        State.SetDate(date)
-        return this.Push(date)
-    }
-
-    ; 把某一天的正文推进 Milkdown。
+    ; 切日期 / 跳转 / 首次载入都走这里。
     ;
-    ; ⚠ 必须等编辑器就绪：首次呼出时 WebView2 还在加载 Vite 产物，
-    ;   window.__swnote 尚且不存在，setMarkdown 会静默落空（画面停在演示内容）。
-    ;   App.vue 里虽然也有 pendingMd 兜底，但那要等 @ready 才补灌 ——
-    ;   切日期时编辑器早就 ready 了，走的不是那条路，所以这里得自己等。
-    static Push(date) {
-        if !WebHostService.WaitFor("window.__swnote && typeof window.__swnote.setMarkdown === 'function'", 8000) {
-            LogError("编辑器未就绪，未能载入 " . date)
-            return false
-        }
-        md := this.ReadNote(date)
-        r := WebHostService.Eval("window.__swnote.setMarkdown(" . JsText.Escape(md) . ")")
+    ; ⚠ 调用方负责先把当前这篇落盘（`NoteSessionService.Save()`）——
+    ;   Feature 之间不互相调用，这里不替别人做决定。
+    ; 返回 true 才代表「屏幕上现在真的是这一天」。日期提交、正文推送、
+    ; 读文件失败这些事全在 `NoteSessionService.Open()` 里按顺序做完了 ——
+    ; 从前这里先 `State.SetDate()` 再推正文，推失败就成了「标题是新的一天、
+    ; 屏幕是旧内容」，接着一保存就把旧正文写到新日期上。
+    static LoadDate(date) {
+        r := NoteSessionService.Open(date)
         if !r.ok {
             LogError("载入 " . date . " 失败：" . r.reason)
             return false
@@ -36,16 +26,11 @@ class LoadFeature {
         return true
     }
 
-    ; 读一天的笔记正文。没有文件就给带日期的空笔记头。
+    ; 读一天的正文，但**不**推进编辑器 —— 只给需要「看一眼」的调用方（如标签校验）。
+    ; 没有文件时给速记题头；读取失败时返回空串（调用方据此知道自己什么都没拿到）。
     static ReadNote(date) {
-        path := NoteStoreService.FindMd(date)
-        if (path != "" && FileExist(path)) {
-            try
-                return FileRead(path, "UTF-8")
-            catch
-                LogError("读取失败：" . path)
-        }
-        return NoteStoreService.EmptyNoteHeader(date)
+        r := NoteSessionService.ReadOnly(date)
+        return r.ok ? r.md : ""
     }
 }
 

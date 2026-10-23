@@ -78,6 +78,14 @@ class ThemeService {
         t := this.Themes[idx ? idx : this._current]
         dark := this.IsDark(t.win)
 
+        ; ── 全局外观覆盖（[Appearance] 四项，由「外观」模块写）────────────────
+        ; 调的是「同一个材质各有多浓 / 圆角多大 / 动多快」，不是「换成什么颜色」——
+        ; 所以它是**跨主题**的全局偏好，不挂在某一条主题上。将来主题多了也一样：
+        ; 换主题只换色，浓度跟着用户自己的口味走。
+        ; ⚠ 读的时候就地校验：配置文件是可以被手改的，脏值不该把界面搞坏
+        ;   （越界的圆角 / 不认识的档位一律回落默认）。
+        ov := this.Overrides()
+
         p := {
             name: t.name, dark: dark,
             win: t.win, edBg: t.edBg, text: t.text, dim: t.dim,
@@ -94,10 +102,108 @@ class ThemeService {
             ; material 是**可选**的手动覆盖：键名直接映射成 --sw-<key>，
             ; 值必须是可直接写进 CSS 的字符串（"14px" / "rgba(...)"）。
             ; 缺省时前端用 glass.css 里的默认值 —— 默认值只写一处，这里不抄一遍。
+            ; ⚠ 用户档位**盖在主题自带 material 之上**：主题说「这套是薄透」，
+            ;   用户想要浓郁就以用户为准 —— 主题给的是出发点，不是上限。
             style:  t.HasProp("style") ? t.style : "",
-            material: t.HasProp("material") ? t.material : ""
+            material: this._MergeMaterial(
+                t.HasProp("material") ? t.material : ""
+                , this._TierMaterial(ov.material)),
+            ; ── 形状 / 动效 / 密度（全局覆盖，窗口类型差异将来在它们之上再分型）──
+            radius:  ov.radius,
+            motion:  ov.motion,
+            density: ov.density,
+            durFast: this._MotionMs(ov.motion).fast,
+            dur:     this._MotionMs(ov.motion).dur,
+            durSlow: this._MotionMs(ov.motion).slow
         }
         return p
+    }
+
+    ; ─── 全局外观覆盖 ─────────────────────────────────────────────────────
+    ; 只读 [Appearance] 四个键；缺省 / 脏值一律回落默认。
+    ; ⚠ 这里**不写**配置：读取路径不该有副作用（Palette() 每帧都可能被调）。
+    ; ⚠ `ConfigService.Read` 只有 **(section, key)** 两个参数 —— 默认值走
+    ;   `SetDefault`，或者像下面这样就地判空。多传第三个参数直接报
+    ;   「Too many parameters passed to function.」，而它发生在建窗路径上：
+    ;   表现是「按 Alt+S 面板打不开」，日志里才有一行。
+    static Overrides() {
+        m := ConfigService.Read("Appearance", "Material")
+        if !RegExMatch(m, "^(薄透|适中|浓郁)$")
+            m := "薄透"
+
+        r := ConfigService.ReadInt("Appearance", "Radius", 16)
+        if (r < 8 || r > 20)
+            r := 16
+
+        mo := ConfigService.Read("Appearance", "Motion")
+        if !RegExMatch(mo, "^(标准|轻量|关闭)$")
+            mo := "标准"
+
+        d := ConfigService.Read("Appearance", "Density")
+        if !RegExMatch(d, "^(标准|紧凑)$")
+            d := "标准"
+
+        return {material: m, radius: r, motion: mo, density: d}
+    }
+
+    ; 浓度档 → material 覆盖。
+    ; 「薄透」返回空串 = 完全交回 tokens.css 的默认值 —— 默认值只写一处。
+    ; ⚠ 只动 blur / sat / tint / edge 这几个白名单内的键（web/src/ahk.ts 的
+    ;   MATERIAL_KEYS 不认识的名字会被前端直接丢掉，写了也等于没写）。
+    ; ⚠ 幅度都压得很小：tint > .05 就从「玻璃」掉成「乳白磨砂塑料」，
+    ;   这条边界在 tokens.css 顶部记着，别在这里突破。
+    ; ⚠ 必须用 Map 不能用对象字面量：`edge-a` 带连字符，而 v2 的对象字面量
+    ;   只收**标识符**作键 —— 写成 `{"edge-a": ...}` 会报
+    ;   「Invalid property name in object literal.」，而且这句在类体里，
+    ;   方案 A 的 ExitApp() 预检查不出来，表现成「程序一启动就没了」。
+    static _TierMaterial(name) {
+        switch name {
+            case "适中":
+                return Map(
+                    "blur", "22px",
+                    "sat", "126%",
+                    "tint", "rgba(255, 255, 255, 0.048)",
+                    "edge", "0.55",
+                    "edge-a", "0.55")
+            case "浓郁":
+                return Map(
+                    "blur", "30px",
+                    "sat", "136%",
+                    "tint", "rgba(255, 255, 255, 0.068)",
+                    "edge", "0.72",
+                    "edge-a", "0.72")
+        }
+        return ""
+    }
+
+    ; 动效档 → 三个时长。
+    ; ⚠ 「关闭」给 1ms 而不是 0ms：0ms 的 animation 在部分实现里不触发
+    ;   animationend，而入场编排靠类名的加/摘推进，卡在中间态比慢更糟。
+    static _MotionMs(name) {
+        switch name {
+            case "关闭":
+                return {fast: "1ms", dur: "1ms", slow: "1ms"}
+            case "轻量":
+                return {fast: "80ms", dur: "140ms", slow: "300ms"}
+        }
+        return {fast: "120ms", dur: "200ms", slow: "480ms"}
+    }
+
+    ; 两个 material 对象合并，后者优先。任一为空就返回另一个（同引用即可 —— 只读）。
+    ; ⚠ 用 Map 承接：主题自带的 material 可能是对象字面量、档位是 Map，
+    ;   混着遍历没问题（for k, v in 两种都认），但**写回**必须是 Map ——
+    ;   对象字面量收不了 `edge-a` 这种键。
+    static _MergeMaterial(base, extra) {
+        if !IsObject(extra)
+            return base
+        if !IsObject(base)
+            return extra
+        merged := Map()
+        for k, v in base
+            merged[k] := v
+        for k, v in extra
+            merged[k] := v
+        return merged
     }
 
     ; ─── 换主题 ───────────────────────────────────────────────────────────

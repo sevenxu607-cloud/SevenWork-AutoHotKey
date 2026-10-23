@@ -25,6 +25,9 @@ class WorkBench {
         ModuleRegistry.Register(KeysInputModule)
         ModuleRegistry.Register(TextModule)
         ModuleRegistry.Register(FoldersModule)
+        ; 外观：只提供「调全局外观参数」的设置页，不持有主题、不建窗口。
+        ; 放在最后注册 —— 它不参与启动顺序，order 5 决定它在面板里的位置。
+        ModuleRegistry.Register(ThemeModule)
 
         ; Phase 3b：先挂上 Launcher.Opened / SevenNote.WindowReady 的监听。
         PeerCoordinator.Init()

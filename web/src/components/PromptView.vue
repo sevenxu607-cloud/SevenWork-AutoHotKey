@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref } from 'vue'
-import { ahkCall, applyTheme, isHosted, type Theme } from '../ahk'
+import { ahkCall, applyTheme, isHosted, markReady, type Theme } from '../ahk'
 import {
   closePrompt,
   copyPrompt,
@@ -30,6 +30,8 @@ const kw = ref('')
 const sel = ref('')
 const status = ref('')
 const loading = ref(false)
+/** 真机上拉取失败 —— 与「目录里本来就没有提示词」是两回事，列表区要分开说 */
+const loadFailed = ref(false)
 const searchRef = ref<HTMLInputElement | null>(null)
 let statusTimer = 0
 
@@ -116,7 +118,11 @@ async function load(first = false) {
       setStatus('读取提示词目录失败')
     }
   }
-  data.value = d ?? MOCK
+  // ⚠ 真机上失败**不能**退回 MOCK —— 那是给 `npm run dev` 调样式用的样本。
+  //   把样本当真数据，用户会看到 4 条根本不存在的提示词（复制 / 编辑全报错），
+  //   比空列表更难懂。失败就留空，由列表区写明「读取失败」。
+  loadFailed.value = hosted && !d
+  data.value = d ?? (hosted ? { root: '', categories: [], items: [], focus: '' } : MOCK)
 
   // 定位：编辑窗保存后 AHK 会带上 focus（删除后是空串 —— 那条已经没了）
   const focus = d?.focus ?? ''
@@ -126,6 +132,8 @@ async function load(first = false) {
 
   loading.value = false
   if (first) nextTick(() => searchRef.value?.focus())
+  // 首屏数据已落定 → 放行 AHK 的入场（见 ahk.ts 的 markReady 说明）
+  markReady()
 }
 
 /* ── 键盘移动（↑↓；页面内处理，AHK 没给这两个键注册热键）─────────────── */
@@ -237,10 +245,15 @@ onMounted(async () => {
         <span class="pv-sum">{{ it.summary }}</span>
       </button>
 
-      <div v-if="!shown.length" class="pv-empty">
+      <!-- ⚠ 顺序有意义：读取中 → 读取失败 → 空 / 无匹配。
+           原来「空」排在「读取中」前面，加载那一瞬会先闪一句「还没有提示词」。 -->
+      <div v-if="loading && !shown.length" class="pv-empty">读取中…</div>
+      <div v-else-if="loadFailed && !shown.length" class="pv-empty">
+        读取提示词目录失败 —— 详见 _error.log，按 F5 重试
+      </div>
+      <div v-else-if="!shown.length" class="pv-empty">
         {{ items.length ? '没有匹配的条目' : '还没有提示词 —— 点「新建」写第一条' }}
       </div>
-      <div v-else-if="loading" class="pv-empty">读取中…</div>
     </div>
 
     <div class="pv-foot">{{ footText }}</div>
@@ -251,12 +264,17 @@ onMounted(async () => {
 /* 整页三块：工具条 / 列表（唯一可滚）/ 状态行。
    不写死高度 —— 窗口尺寸变了也不会出现「列表盖住状态行」。 */
 .pv {
+  /* 板外留边。⚠ 同时被 height 与 margin 使用 —— 改这一处，板的大小与位置一起动。 */
+  --pv-pad: 18px;
+  position: relative;
   display: flex;
   flex-direction: column;
-  height: 100vh;
   box-sizing: border-box;
+  /* 板内留白（与外留边分开：margin 是「板外那圈光」，padding 是「板内边距」） */
+  height: calc(100vh - var(--pv-pad) * 2);
+  margin: var(--pv-pad);
+  padding: 14px 16px 10px;
   gap: 10px;
-  padding: 12px 14px 8px;
   overflow: hidden;
   color: var(--sw-fg);
   font-size: 13px;
@@ -271,14 +289,19 @@ onMounted(async () => {
 .pv-search {
   flex: 1;
   min-width: 0;
-  height: 32px;
-  padding: 0 10px;
+  height: 34px;
+  padding: 0 11px;
   border: 1px solid var(--sw-border);
-  border-radius: 8px;
+  border-radius: 10px;
+  /* 下沉表面：内影给「凹进去」的暗示，与面板的输入框同一口径 */
   background: var(--sw-code-bg);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.18);
   color: var(--sw-fg);
   font: inherit;
   outline: none;
+  transition:
+    border-color var(--sw-dur-fast) var(--sw-ease),
+    box-shadow var(--sw-dur-fast) var(--sw-ease);
 }
 
 .pv-search::placeholder {
@@ -287,22 +310,39 @@ onMounted(async () => {
 
 .pv-search:focus {
   border-color: var(--sw-accent);
+  box-shadow:
+    inset 0 1px 2px rgba(0, 0, 0, 0.18),
+    0 0 0 3px var(--sw-ring);
 }
 
 .pv-new {
   flex: none;
-  height: 32px;
-  padding: 0 14px;
+  height: 34px;
+  padding: 0 15px;
   border: 1px solid var(--sw-border);
-  border-radius: 8px;
-  background: var(--sw-code-bg);
+  border-radius: 10px;
+  /* 凸起：上亮下暗的渐变 —— 与面板的键帽同一套“实体感” */
+  background: linear-gradient(180deg,
+    rgba(255, 255, 255, 0.1),
+    rgba(255, 255, 255, 0.028));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.24),
+    0 1px 2px rgba(0, 0, 0, 0.18);
   color: var(--sw-fg);
   font: inherit;
   cursor: pointer;
+  transition:
+    border-color var(--sw-dur-fast) var(--sw-ease),
+    transform var(--sw-dur-fast) var(--sw-ease-out);
 }
 
 .pv-new:hover {
   border-color: var(--sw-accent);
+}
+
+.pv-new:active {
+  transform: translateY(1px);
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.24);
 }
 
 /* 列表撑满剩余高度，只有它滚（gap 由 glass.css 的 .sw-list 给） */
@@ -373,7 +413,11 @@ onMounted(async () => {
 
 .pv-foot {
   flex: none;
-  padding: 0 2px;
+  /* 状态行与列表分开：一条分隔线 + 8px —— 没有它，这行字就漂在列表底下，
+     内容多时读起来像是列表的最后一条。 */
+  margin-top: 2px;
+  padding: 8px 2px 0;
+  border-top: 1px solid var(--sw-border);
   font-size: 12px;
   color: var(--sw-dim);
   overflow: hidden;

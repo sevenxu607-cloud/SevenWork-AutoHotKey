@@ -16,14 +16,28 @@ class NoteStoreService {
 
     static EnsureDir(path) => DirCreate(path)
 
+    ; ─── 写文件（先写临时文件，成功后再替换）───
+    ; ⚠ 别直接 `FileOpen(path, "w")`：那是把原文件**先截断成 0 字节**再写。
+    ;   写到一半断电 / 进程被杀 / 磁盘满，用户这一篇就没了 —— 而笔记没有版本可回退。
+    ;   改成同目录临时文件写完整、关盘、再 FileMove 覆盖：同一卷上是原子的改名，
+    ;   目标要么还是旧内容、要么是完整的新内容，不存在「半个文件」。
+    ; ⚠ 临时扩展名是 .swtmp —— 不会被 FindMd 的 `*.md` 扫到，也不会被 Obsidian 收进库。
     static WriteFile(path, content, encoding := "UTF-8") {
+        tmp := path . ".swtmp"
         try {
-            f := FileOpen(path, "w", encoding)
+            if FileExist(tmp)
+                FileDelete(tmp)
+            f := FileOpen(tmp, "w", encoding)
+            if !f
+                return false
             f.Write(content)
             f.Close()
+            FileMove(tmp, path, true)
             return true
-        } catch
+        } catch {
+            try FileDelete(tmp)
             return false
+        }
     }
 
     ; ─── 路径拼接：rtf / md 两条只此一处（无标签时的默认名，与带标签名同目录同名式）───

@@ -51,6 +51,11 @@ class WebWindow {
         this._hwnd := 0
         this._mounted := false
         this._escRegistered := false
+        ; 入场重试的定时器闭包与轮次序号（见 _RevealWhenReady 的说明）
+        ; ⚠ 存的是**函数对象**不是 ID：AHK v2 的 SetTimer 没有「传 ID 停表」这回事，
+        ;   停表必须把当初那个 Callback 再交回去一次（`SetTimer(fn, 0)`）。
+        this._revealTimer := ""
+        this._revealSeq := 0
     }
 
     ; opts 是普通对象（字面量）；缺字段 / 空串一律退回缺省值 —— 调用方少写一项不至于报错
@@ -70,6 +75,18 @@ class WebWindow {
             && DllCall("user32\IsWindow", "ptr", this._hwnd, "int")
     }
 
+    ; 窗口**当前看得见**吗 —— 与 IsOpen() 不是一回事。
+    ; ⚠ IsOpen() 判的是「窗口存在」，而本类的收起是 Hide（保留 WebView2 不重建），
+    ;   所以藏起来的窗口 IsOpen() 依然为真。拿它做「开关」判断会永远走同一分支：
+    ;   按一次收起、再按还是收起 —— 面板从此打不开（实测过）。
+    ; ⚠ 最小化也算「没显示」：它的 WS_VISIBLE 仍是 1，但 WinGetPos 会返回
+    ;   -21333 一类的停放位，用户眼前什么也没有（.clinerules/03 记过这条）。
+    IsShown() {
+        return this.IsOpen()
+            && DllCall("user32\IsWindowVisible", "ptr", this._hwnd, "int")
+            && !DllCall("user32\IsIconic", "ptr", this._hwnd, "int")
+    }
+
     ; 开着就直接露 + 补一次 Resize；没建 / 已被销毁就整座建起来
     Open() {
         if this.IsOpen()
@@ -81,12 +98,21 @@ class WebWindow {
     Close() {
         if !this.IsOpen()
             return
+        ; 收起前先停掉待执行的入场重试，并让页面把入场状态复位。
+        ; ⚠ 顺序不能反：reset 必须在 Hide **之前** —— 隐藏期间页面仍在跑，
+        ;   动画会在后台跑完，下次 Show() 的第一帧就是终态（视觉上「闪一下」）。
+        ;   这也是 reveal.ts 里那句注释的由来。
+        this._CancelReveal()
+        this._revealSeq += 1
+        if this._mounted
+            WebHostService.Eval("window.__swfx&&window.__swfx.reset()", this._hwnd)
         try this._gui.Hide()
         this._UnregisterEsc()
     }
 
     Toggle() {
-        if this.IsOpen()
+        ; ⚠ 用 IsShown() 不是 IsOpen()：藏起来的窗口 IsOpen() 仍为真（见那两个方法）
+        if this.IsShown()
             this.Close()
         else
             this.Open()
@@ -100,7 +126,15 @@ class WebWindow {
             this._gui.Show()
             WinActivate("ahk_id " . this._hwnd)
             WebHostService.Resize(this._hwnd)
-            this._Reveal()
+            ; ⚠ Esc 必须在这里补注册：Close() 会把它注销，而这条路径**不重建窗口**，
+            ;   少了这一句就只有「第一次打开」能按 Esc —— 之后每次呼出都是死的，
+            ;   而且日志里一个字都没有（注册失败才会记日志，这里是压根没注册）。
+            if !this._escRegistered
+                this._escRegistered := this._RegisterEsc()
+            ; 已经建好的窗口再呼出：页面多半早就 ready，第一轮就命中；
+            ; 但窗口是刚建完就藏、又马上打开的话仍在路上 —— 交给同一套重试，
+            ; 别在这里直接 _Reveal()（那会在页面没就绪时白喊一次）。
+            this._RevealWhenReady()
         } catch as e {
             LogError(this._title . " 激活失败：" . e.Message)
         }
@@ -117,6 +151,80 @@ class WebWindow {
         WebHostService.Eval("window.__swfx&&window.__swfx.reveal()", this._hwnd)
     }
 
+    ; 页面就绪判据：**Vue 已挂载** + **主题已应用**。
+    ; ⚠ 不能只看 NavigationCompleted：那只说明文档加载完，Vue 的 onMounted 里
+    ;   还在 await getTheme()，此时 reveal() 会被页面里的 `!dataset.style` 短路
+    ;   （主文档 .clinerules/02 记过这条：早喊会被 && 吞掉，表现为首开没有入场）。
+    ; ⚠ #app 有子元素才说明 Vue 真的渲染了 —— 脚本下载完但挂载失败时会一直为空。
+    ; ⚠ 判据字符串**不要**存进类变量再 this. 取：实测 v2 报
+    ;   「This value of type "WebWindow" has no property named "_READY_JS"」，
+    ;   而 OnError 之后整段重试直接被跳过 —— 表现是「窗口一切正常、只是没有入场」，
+    ;   日志里只有那一行 property 报错。直接内联，少一层运行时查找。
+
+    ; 等页面就绪再播入场。tries 上限 40 × 120ms ≈ 4.8s：
+    ; 超时也照样播一次 —— 宁可晚一点，也别让首开彻底没有入场。
+    ; ⚠ 判据是**两个 data 属性**：
+    ;   data-theme 说明 applyTheme 跑过了（前端据此决定整套 --sw-*）；
+    ;   data-ready 由各视图在**首屏数据落定**后自己挂上（ahk.ts 的 markReady）。
+    ;   原来只看「#app 有子元素」—— 那只是 Vue 挂上了，PanelView 的 rows 还在
+    ;   fetchPanel() 路上，入场会从空壳开始淡入、数据后到再跳一次。
+    ; ⚠ 每轮都过两道闸：窗口还在显示（不是被收起）、WebView2 还挂着。
+    ;   用户按完 Alt+S 立刻再按一次收起时，这里必须停手，否则页面在后台把
+    ;   动画跑完，下次打开第一帧就是终态（就是 .clinerules/02 说的「闪一下」）。
+    ;
+    ; ⚠ 重试必须**可取消**，并且带序号：
+    ;   · 定时器闭包存进 _revealTimer —— 否则 Close() 停不掉它，窗口藏了还在跑；
+    ;   · 每次 _RevealWhenReady 领一个 seq，回调先比对 _revealSeq：
+    ;     快速「开 → 关 → 开」时，前一轮排的 -120ms 会在新窗口里执行，
+    ;     它带着**旧**的 tries 计数，会提前撞到 40 上限、或者抢在新一轮之前播入场。
+    ;   ⚠ SetTimer 的箭头函数每次新建都是新对象，停它必须靠存下来的那个引用。
+    _RevealWhenReady(tries := 0) {
+        if (tries = 0) {
+            this._CancelReveal()
+            this._revealSeq += 1
+        }
+        seq := this._revealSeq
+        if !this._mounted || !IsObject(this._gui)
+            return
+        if !DllCall("user32\IsWindowVisible", "ptr", this._hwnd, "int")
+            return
+        ; 最小化也算「用户看不见」：它的 WS_VISIBLE 仍是 1，此时播入场等于
+        ; 在后台把 480ms 跑完，还原窗口时第一帧就是终态（看起来「没有动画」）。
+        if DllCall("user32\IsIconic", "ptr", this._hwnd, "int")
+            return
+        r := WebHostService.Eval(
+            "!!document.documentElement.dataset.theme && !!document.documentElement.dataset.ready"
+            , this._hwnd)
+        if (r.ok && r.value = "true") || tries >= 40 {
+            this._Reveal()
+            return
+        }
+        ; ⚠ 闭包必须存进字段：不存就没法取消（见 _CancelReveal）。
+        ;   每次新建的箭头函数都是新对象，别指望 SetTimer 能按「内容相同」认回来。
+        fn := () => this._RevealStep(seq, tries + 1)
+        this._revealTimer := fn
+        SetTimer(fn, -120)
+    }
+
+    ; 一轮重试的入口：先确认自己还是当前那一轮（序号没被新一轮顶掉）再往下走
+    _RevealStep(seq, tries) {
+        if (seq != this._revealSeq)
+            return
+        this._RevealWhenReady(tries)
+    }
+
+    ; 停掉待执行的重试。Close() 与每一轮的第一拍都会调 —— 幂等。
+    ; ⚠ 必须把**存下来的那个函数对象**交回去：`SetTimer(数字, 0)` 在 v2 里是把数字
+    ;   当 Callback 用，直接抛错（而这里在 try 里，表现成「定时器根本没停」）。
+    ; ⚠ 已经触发过的一次性定时器再停一次会失败 —— try 兜住，不该打断收窗流程。
+    _CancelReveal() {
+        fn := this._revealTimer
+        this._revealTimer := ""
+        if IsObject(fn) {
+            try SetTimer(fn, 0)
+        }
+    }
+
     ; 换主题：只换窗口底色 + 把 --sw-* 推给页面，**不重建**。
     ; 这样当前停在哪一页、输入框里的字都保持不变（原生控件版只能关掉重开）。
     ApplyTheme() {
@@ -125,10 +233,12 @@ class WebWindow {
         p := ThemeService.Palette()
         try this._gui.BackColor := p.win
         UiPaint.WindowTheme(this._hwnd, p.dark)
-        ; ⚠ 顺序：先立背板、再决定标题栏染不染。mica/acrylic 生效时染色会把
-        ;   背板盖成一块实色（见 UiPaint.TitleBar 的 caption 说明）。
-        m := UiPaint.Glass(this._hwnd, p.style, p.win)
-        UiPaint.TitleBar(this._hwnd, p.win, p.text, !(IsObject(m) && m.ok))
+        ; ⚠ 顺序：先立背板、再决定标题栏染不染。
+        ;   v2.14 起 caption 恒为 true —— 原设计是「背板成功就把底色交给 mica/acrylic」，
+        ;   但实测（.clinerules/03）WebView2 一挂上，材质就不再出现，等于永远在等一个
+        ;   不会来的背板：标题栏保持系统浅色、内容却是深灰，一窗两种明暗。
+        UiPaint.Glass(this._hwnd, p.style, p.win)
+        UiPaint.TitleBar(this._hwnd, p.win, p.text, true)
         ; 页面没起来时 Eval 返回 {ok:false}，忽略即可 —— 页面 onMounted 还会
         ; 再 getTheme 一次，不会留旧色。
         if this._mounted
@@ -147,10 +257,11 @@ class WebWindow {
         g.SetFont("s10", "Microsoft YaHei UI")
         g.BackColor := p.win
         ; 非客户区（标题栏 / 边框）的玻璃背衬 —— 客户区整个交给 WebView2。
-        ; ⚠ 背板成功时不染标题栏底色，否则 Win11 的亚克力被实色盖掉。
+        ; ⚠ caption 恒 true：WebView2 挂上后背板材质不出现（实测，见 .clinerules/03），
+        ;   把底色交给系统只会得到一条浅色标题栏压着深色内容。
+        ; ⚠ 这里只立背板 + 暗色窗口主题；**标题栏染色在 Show() 之后**（见下）。
         UiPaint.WindowTheme(g.Hwnd, p.dark)
-        m := UiPaint.Glass(g.Hwnd, p.style, p.win)
-        UiPaint.TitleBar(g.Hwnd, p.win, p.text, !(IsObject(m) && m.ok))
+        UiPaint.Glass(g.Hwnd, p.style, p.win)
 
         this._gui := g
         this._hwnd := g.Hwnd
@@ -163,6 +274,11 @@ class WebWindow {
         this._Place()
         g.Show()
 
+        ; ⚠ 标题栏染色必须在 **Show() 之后**：Show 之前设的 DWM 属性会被窗口的
+        ;   创建/首次显示流程重置。实测 Win11 26200：在 Show 前调 TitleBar，
+        ;   标题栏一个字都没变（而且 DllCall 全返回 0，看起来「成功了」）。
+        UiPaint.TitleBar(this._hwnd, p.win, p.text, true)
+
         this._escRegistered := this._RegisterEsc()
 
         ; ⚠ 挂载放在**露面之后**：隐藏态挂 WebView2 时 Chromium 会留在 SW_HIDE，
@@ -174,8 +290,9 @@ class WebWindow {
         if IsObject(fn)
             try fn(this)
 
-        ; 首次露面也补一次粒子：导航是异步的，等 700ms 再喊（早喊会被 && 吞掉）。
-        SetTimer((*) => this._Reveal(), -700)
+        ; 首次露面的入场：等页面**真的**就绪再喊，而不是赌一个 700ms。
+        ; 就绪判据与重试上限见 _RevealWhenReady。
+        this._RevealWhenReady()
     }
 
     ; 摆位：center    = 主屏工作区居中偏上（不写死坐标，换显示器 / 改分辨率都不用改代码）
@@ -192,17 +309,39 @@ class WebWindow {
         DetectHiddenWindows(true)   ; Show("Hide") 过的窗口 WinGetPos 读不到
         try {
             x := 0, y := 0, w := 0, h := 0
-            ; 刚 Show("Hide") 的窗口尺寸要几轮才稳定（控件按 DPI 放大是异步的）
+            ; 刚 Show("Hide") 的窗口尺寸要几轮才稳定（DPI 缩放是异步的）。
+            ; ⚠ 判据里必须有 `w > 200`：窗口刚建出来时 WinGetPos 可能先读到
+            ;   10 一类的中途值，而「两次相同就 break」会把它当终值 —— 那样居中
+            ;   用的是「一个 10px 宽的窗口」，落点会整体偏到屏幕右侧；下面的高度
+            ;   上限判断也会因为 h 同样是中途值而失效。
+            ;   本机终值 1432x1106（940x700 逻辑 @150% 缩放）。
+            ; ⚠ 上限 60×10ms：DPI 稳定要一点时间，原先的 40×5ms（200ms）不够。
+            ; ⚠ 2026-10-23 更正：曾把 `(2560-1432)/2 = 564` 当成「本该是 137」
+            ;   的错误落点 —— 那是截图工具按虚拟化坐标裁剪造成的误判（物理屏
+            ;   2560x1600、缩放下 PowerShell 报 1707x1067）。564 本身是对的。
             prevW := -1, prevH := -1
-            loop 40 {
+            loop 60 {
                 try WinGetPos(&x, &y, &w, &h, "ahk_id " . this._hwnd)
-                if (w = prevW && h = prevH && w > 0)
+                if (w = prevW && h = prevH && w > 200)
                     break
                 prevW := w, prevH := h
-                Sleep 5
+                Sleep 10
             }
             if (w <= 0 || h <= 0)
                 return
+
+            ; ⚠ 高度上限：窗口不能高过工作区（防御小屏用）。
+            ;   窗口物理高度固定 ≈ 1106（700 逻辑 × 150% + 标题栏）。本机 2560×1600
+            ;   绰绰有余，但 1366×768 一类的屏会放不下 —— 那时底栏（保存 / 关闭）
+            ;   会被裁到屏幕外，用户会以为「这个面板根本没有底栏」。
+            ;   正文是 overflow-y:auto，收缩后自己出滚动条，不丢内容。
+            ;   ⚠ 必须在算位置之前收缩：居中公式用了 h，先摆位再缩会让窗口上下错位。
+            ;   ⚠ rect 来自 MonitorGetWorkArea，是**物理**像素；窗口 w/h 来自 WinGetPos，
+            ;     也是物理 —— 两者同单位才能比较。别拿 Gui.Move 的逻辑单位混进来。
+            if (h > rect.h - 8) {
+                WinMove(, , , rect.h - 8, "ahk_id " . this._hwnd)
+                try WinGetPos(&x, &y, &w, &h, "ahk_id " . this._hwnd)
+            }
 
             if (this._placeMode = "topright") {
                 pos := RectMath.TopRightRect(rect, w, h, Config.PlaceRight, this._placeTop)

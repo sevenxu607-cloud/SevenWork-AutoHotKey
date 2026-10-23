@@ -38,38 +38,19 @@ class FontService {
         }
     }
 
+    ; 应用字体 / 字号。
+    ;
+    ; ⚠ v2.9 起编辑区是 WebView2：不再往 RichEdit 灌 CHARFORMAT ——
+    ;   `State.GetEd()` 恒为 0，从前那段 `if !hwndEd return` 会让整个函数**直接返回**，
+    ;   连配置都不写、事件都不发。于是「用户在旧版调过的字号」永远停在配置文件里，
+    ;   新编辑区一直用 CSS 的默认 14pt —— 这正是「文字格式和以前割裂」的一半来源。
+    ;   现在取值由 HostBridge.NoteHostTheme() 带给前端（--sw-ed-font / --sw-ed-size），
+    ;   这里只负责：落配置 + 广播 Font.Changed（订阅者按新字号重刷页面）。
     static Apply() {
-        hwndEd := State.GetEd()
-        if !hwndEd
-            return
-
-        t := ThemeService.Themes[ThemeService.GetCurrent()]
-
-        cf := Buffer(92, 0)
-        NumPut("uint", 92, cf, 0)
-        NumPut("uint", 0x40000000 | 0x20000000 | 0x80000000 | 0x08000000, cf, 4)
-        NumPut("int", this.GetSize() * 20, cf, 12)
-        NumPut("uint", ThemeService.RGBtoBGR(t.text), cf, 20)
-        NumPut("uchar", 134, cf, 24)
-        StrPut(this.GetName(), cf.Ptr + 26, "UTF-16")
-        SendMessage(0x0444, 4, cf.Ptr, hwndEd)
-
-        for ctrl in [State.GetStat(), State.GetDateCtrl()
-            , State.GetMsgCtrl(), State.GetThemeLabel()] {
-            try ctrl.SetFont("c" . t.dim . " s" . (this.GetSize() - 4), this.GetName())
-        }
-        try State.GetThemeLabel().SetFont("c" . t.text . " s10", this.GetName())
-        try State.GetTagCtrl().SetFont("c" . t.dim . " s10", this.GetName())
-
-        try State.GetThemeLabel().Value := ThemeService._BuildLabel()
-
         if !this._loading
             this.SaveToConfig()
 
         EventBus.Emit("Font.Changed", {name: this.GetName(), size: this.GetSize()})
-
-        SendMessage(0x00B1, -1, -1, hwndEd)
-        SendMessage(0x00B7, 0, 0, hwndEd)
     }
 
     static SaveToConfig() {

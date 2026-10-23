@@ -110,11 +110,21 @@ class DateJumpFeature {
     }
 
     static JumpTo(dateStr) {
-        EventBus.Emit("Save.Requested")   ; 跳走之前先把当前这篇落盘
-        ; 换文档由 LoadFeature 统一负责（v2.9）—— 这里不再直接碰编辑器
+        if (dateStr = "")
+            return false
+
+        ; ⚠ 与切日期同一条规矩：存不住就不跳。
+        ;   从前只发 `Save.Requested` 就走，等于「保存失败也照样跳过去」。
+        saved := NoteSessionService.Save()
+        if !saved.ok && !(saved.HasProp("recoverable") && saved.recoverable)
+            return false
+
+        ; 换文档由 NoteSessionService 统一负责（读文件 → 推编辑器 → 提交日期）。
+        ; 它失败时日期不变，屏幕上还是原来那一篇。
         State.ResetCaret()
-        if !LoadFeature.LoadDate(dateStr)
-            return
+        if !NoteSessionService.Open(dateStr).ok
+            return false
         EventBus.Emit("Date.Switched", {date: dateStr})
+        return true
     }
 }

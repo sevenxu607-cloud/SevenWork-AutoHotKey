@@ -83,6 +83,12 @@ html[data-style='glass'] .sw-aurora {
        模糊一过头就摊平成「均匀灰」。同理下限从 14 降到 12 —— 小窗要保住团形。
        sat 从 115% 降到 110%：灰上饱和变换是恒等，留着只是给将来的彩色主题。 */
   filter: blur(clamp(10px, 3.5vmin, 24px)) saturate(100%);
+  /* v2.14：光团退居「光源」，让位给 body::before 的环境光场（主光 + 暗角）。
+     收到的原因很具体：orb 尺寸用 vmin —— **相对的是视口**（面板逻辑 940x700，
+     150% 缩放下物理 1410x1050，但 CSS 视口仍是 940x700），46vmin ≈ 432px。
+     五团叠起来会在板内烧出一块突兀的亮斑 —— 看起来像屏幕脏了，而不是光。
+     0.62 是试出来的分界：再高亮斑回来，再低「呼吸感」就没了。 */
+  opacity: 0.62;
 }
 
 /* flat 主题不付这笔成本（节点常驻，靠这条关掉） */
@@ -145,6 +151,50 @@ html[data-style='glass'] body::after {
   opacity: var(--sw-frost, 0.035);
   mix-blend-mode: soft-light;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.66' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ── 1a. 环境光场：先给出「有方向的室内打光」────────────────────────────
+   ⚠ 这一层是 v2.14 补的地基，原因很具体：
+     原来只有 .sw-aurora 五团白光用 screen 叠加 —— **只加光、从不压暗**。
+     没有暗部就没有对比，五团叠起来只是一次「均匀提亮」，读不出光源、
+     也读不出玻璃，整页平坦得像深色主题（glass.css:56 那句话说的「错觉」）。
+   分工：
+     · 这一层 = **环境**（主光方向 + 暗角 + 辅助冷光），静态、不参与动画；
+     · .sw-aurora = **光源**（可呼吸的亮团），在上层。
+   顺序：body::before 渲染在 body 的真实子元素之前 → 自然位于 .sw-aurora 之下。
+   ⚠ 别把暗角写重：0.2 上下就够拉开纵深，过了就是「四个角糊了黑胶带」。
+   ⚠ 光的方向一旦定了就全站统一（左上进光），板的高光 / 投影都朝同一侧 ——
+     .sw-plate 的 inset 上亮下暗就是这个方向。 */
+html[data-style='glass'] body::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background:
+    /* ① 主光源：从左上角斜着进来，是唯一的「强」光。
+       0.15 → 0.19：板外留边加到 18px 后，这圈背景有了地方显示光；
+       原来那点强度在 940x700 的窗口里几乎读不出方向。 */
+    radial-gradient(
+      ellipse 95% 78% at 10% -12%,
+      rgba(255, 255, 255, 0.19) 0%,
+      rgba(255, 255, 255, 0.07) 30%,
+      transparent 58%
+    ),
+    /* ② 辅助冷光：右下极淡一层，避免暗部彻底死黑（死黑会让玻璃边发脏） */
+    radial-gradient(
+      ellipse 72% 62% at 92% 112%,
+      rgba(198, 208, 224, 0.09) 0%,
+      transparent 55%
+    ),
+    /* ③ 暗角：把视觉重心压向中上，四周收进去。
+       没有它，光只是「整页提亮」；有了暗部，板才浮得起来。 */
+    radial-gradient(
+      ellipse 138% 118% at 46% 26%,
+      transparent 34%,
+      rgba(0, 0, 0, 0.24) 82%,
+      rgba(0, 0, 0, 0.4) 100%
+    );
 }
 
 html[data-style='glass'] #app {
@@ -278,8 +328,36 @@ html[data-style='glass'] .main {
    ⚠ 两块板各有 ::before（1px 环边）/ ::after（specular），别再往它们身上加。
    ⚠ scoped 样式会把选择器编成 .pnav[data-v-xxx]（specificity 0,2,0），
      这条 html[data-style] .pnav 是 0,2,1 —— 赢一格，能盖住组件里的兜底底色。 */
+/* 圆角必须在这里再声明一次：
+   PanelView 的 scoped 规则是 0,2,0，**赢不过** 下面的 .sw-plate（0,2,1），
+   所以组件里写死 px 在 glass 主题下会被 .sw-plate 的 --sw-radius-lg 盖掉。
+   ⚠ 现在取 var(--sw-radius-lg) 而不是写死 16px —— 那是「外观」模块的圆角
+     滑杆唯一能落地的位置；写死等于把那个设置变成摆设。 */
+html[data-style='glass'] .pnav,
+html[data-style='glass'] .pmain {
+  border-radius: var(--sw-radius-lg, 16px);
+}
+
+
 html[data-style='glass'] .pnav {
-  background: rgba(255, 255, 255, 0.06);
+  /* 两层：**斜向掠光** + **垂直走向**。
+     ⚠ 只有垂直渐变时，940x700 的板内仍然读成「一块灰」—— 因为 backdrop-filter
+       把背后的光场抹成了大尺度均匀值，板本身没有任何结构。斜向那道宽带是玻璃
+       自己的反射（不依赖背后有什么），板越大越明显，正是用来治「平」的。
+     ⚠ 两层顺序不能反：掠光在上（先叠），垂直走向在下托底。 */
+  background:
+    linear-gradient(
+      118deg,
+      rgba(255, 255, 255, 0.07) 0%,
+      rgba(255, 255, 255, 0.026) 30%,
+      transparent 54%
+    ),
+    linear-gradient(
+      168deg,
+      rgba(255, 255, 255, 0.03) 0%,
+      rgba(255, 255, 255, 0.012) 50%,
+      rgba(0, 0, 0, 0.05) 100%
+    );
   backdrop-filter: blur(var(--sw-blur, 15px)) saturate(var(--sw-sat, 120%))
     brightness(var(--sw-bright, 1.02));
   -webkit-backdrop-filter: blur(var(--sw-blur, 15px)) saturate(var(--sw-sat, 120%))
@@ -287,7 +365,23 @@ html[data-style='glass'] .pnav {
 }
 
 html[data-style='glass'] .pmain {
-  background: rgba(255, 255, 255, 0.035);
+  /* 内容板的掠光角度比导航板更「正」（112deg），幅度更小：
+     阅读区要的是稳定对比 —— 玻璃感让给导航板，正文不能跟着背景明暗漂。
+     ⚠ 末段那层 rgba(0,0,0,.075) 是叠在模糊结果之上的压暗，不是改变模糊本身；
+       它负责让板的下半部「退后」，正文才有贴在上面的实感。 */
+  background:
+    linear-gradient(
+      112deg,
+      rgba(255, 255, 255, 0.055) 0%,
+      rgba(255, 255, 255, 0.018) 26%,
+      transparent 48%
+    ),
+    linear-gradient(
+      170deg,
+      rgba(255, 255, 255, 0.032) 0%,
+      rgba(255, 255, 255, 0.012) 42%,
+      rgba(0, 0, 0, 0.075) 100%
+    );
   backdrop-filter: blur(var(--sw-blur, 15px)) saturate(var(--sw-sat, 120%))
     brightness(var(--sw-bright, 1.02));
   -webkit-backdrop-filter: blur(var(--sw-blur, 15px)) saturate(var(--sw-sat, 120%))
@@ -406,23 +500,26 @@ html[data-style='glass'] .sw-btn:focus-visible {
     inset 0 1px 0 rgba(255, 255, 255, 0.4);
 }
 
-/* 主按钮 */
+/* 主按钮：白底深字（对比度 12.9:1），但**压到不刺眼**。
+   ⚠ 原来是 #E1E1E1 → #AFAFAF + 32% 白的外发光，在哑光灰的面板里是一块
+     自己会发亮的牌子 —— 视觉重心全被它抢走。这里把亮度各降一档、外发光
+     从「白雾」换成「投影」：仍然是最亮的那一件，但它属于这块板。 */
 html[data-style='glass'] .sw-btn--primary {
-  border-color: rgba(233, 233, 233, 0.55);
-  background: linear-gradient(180deg, #E1E1E1, #CECECE 42%, #AFAFAF);
+  border-color: rgba(233, 233, 233, 0.42);
+  background: linear-gradient(180deg, #D8D8D8, #C4C4C4 46%, #AAAAAA);
   color: #111111;
   font-weight: 600;
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.85),
-    inset 0 -2px 6px rgba(17, 17, 17, 0.22),
-    0 4px 16px rgba(175, 175, 175, 0.32);
+    inset 0 1px 0 rgba(255, 255, 255, 0.8),
+    inset 0 -2px 6px rgba(17, 17, 17, 0.2),
+    0 3px 12px rgba(0, 0, 0, 0.32);
 }
 
 html[data-style='glass'] .sw-btn--primary:hover {
-  background: linear-gradient(180deg, #EAEAEA, #D7D7D7 42%, #BEBEBE);
+  background: linear-gradient(180deg, #E2E2E2, #CFCFCF 46%, #B6B6B6);
   box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.9),
-    0 6px 22px rgba(175, 175, 175, 0.44);
+    inset 0 1px 0 rgba(255, 255, 255, 0.88),
+    0 4px 16px rgba(0, 0, 0, 0.36);
 }
 
 /* 幽灵按钮：无底无框，hover 才浮出冰面 */
@@ -570,14 +667,33 @@ html[data-style='glass'] .warn {
        底下的白雾透不上来，玻璃又变回「深色方块」。
        正文可读性由 .ProseMirror 自己那层 .10 兜底（合计 ≈ .20–.26），仍远超 15:1。 */
 html[data-style='glass'] .main.note {
-  margin: 22px;
-  border-radius: var(--sw-radius-lg);
+  /* ⚠ v2.13 这里是 22px（12px 时板贴着窗框、光雾那圈完全看不见）；
+     v2.15 统一到 18px —— 三个窗口（面板 / 提示词库 / 笔记）用同一套空间语法。
+     540 宽的笔记窗里 18px 占 3.3%，板外那圈光照样看得见。
+     ⚠ 圆角也统一到 16px（原来取 --sw-radius-lg = 12px，比另两窗小一档）。 */
+  margin: 18px;
+  border-radius: var(--sw-radius-lg, 16px);
   overflow: hidden;
-  background: linear-gradient(
-    180deg,
-    rgba(255, 255, 255, 0.09) 0%,
-    rgba(255, 255, 255, 0.03) 100%
-  );
+  /* 与 .pmain 同一套结构：**斜向掠光**（玻璃自己的反射）+ **垂直走向**
+     （上亮下暗、末段压暗）。照抄这条逻辑而不是单纯「从上到下变淡」——
+     后者在 660px 高的板上读起来就是「背景在慢慢变亮」，正文像浮在一道斜坡上；
+     有明确的受光方向之后，明暗才是「光从上方来」，不是背景自己在动。
+     ⚠ 板内 scrim 走 .075/.02（v2.13 去色后从 .22/.28 降下来）：底色换成中性
+       #1C1C1C 之后，同一个 alpha 读起来比以前「更黑」—— 不降就是一块闷住的板。
+       正文可读性由 .ProseMirror 自己那层 .05 兜底，仍远超 15:1。 */
+  background:
+    linear-gradient(
+      155deg,
+      rgba(255, 255, 255, 0.075) 0%,
+      rgba(255, 255, 255, 0.02) 46%,
+      transparent 68%
+    ),
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.028) 0%,
+      rgba(255, 255, 255, 0.01) 52%,
+      rgba(0, 0, 0, 0.07) 100%
+    );
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.32),
     inset 0 -1px 0 rgba(0, 0, 0, 0.18),
@@ -1078,4 +1194,75 @@ html[data-style='glass'] .main.note::after {
     rgba(247, 247, 247, 0.5) 14%,
     rgba(247, 247, 247, 0.24) 52%,
     transparent 88%);
+}
+
+/* ── 13. 提示词库 = 一块悬浮的工具板 ────────────────────────────────────
+   620×520 的窗口，板外留 18px；板内只有「工具条 / 列表 / 状态行」三块。
+   与笔记窗（22px 留边）、工作台（18px）共用同一套空间语法 —— 三个窗口
+   打开时看得出来是同一个产品。
+   ⚠ 板就是 .pv **本身**（margin 留边 + 自己的背景），不是 ::before。
+     试过伪元素方案：`position: absolute` 的元素按绘制顺序排在静态兄弟**之后**，
+     板连同它的 backdrop-filter 会盖在工具条 / 状态行上面，把那两行直接糊没
+     （截图实证：搜索框和「新建」整块消失）。元素的 background 永远画在自己
+     内容之下，只有这样才能既省一层又不出这类顺序问题。
+   ⚠ 外留边与板内留白的分工：margin = 板外（看得见光雾），padding = 板内。 */
+html[data-style='glass'] .pv {
+  border-radius: var(--sw-radius-lg, 16px);
+  /* 两层：斜向掠光（玻璃自己的反射，治「一块平灰」）+ 垂直走向（厚度方向）。
+     顺序不能反，掠光在上。 */
+  background:
+    linear-gradient(
+      148deg,
+      rgba(255, 255, 255, 0.085) 0%,
+      rgba(255, 255, 255, 0.02) 40%,
+      rgba(255, 255, 255, 0.004) 62%,
+      rgba(255, 255, 255, 0.05) 100%
+    ),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.05), rgba(0, 0, 0, 0.085));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.34),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.2),
+    inset 0 0 0 1px rgba(233, 233, 233, 0.1),
+    0 1px 2px rgba(20, 20, 20, 0.16),
+    0 10px 26px rgba(20, 20, 20, 0.2),
+    0 0 34px -6px rgba(233, 233, 233, calc(var(--sw-edge-a, 0.4) * 0.8));
+  backdrop-filter: blur(var(--sw-blur, 18px)) saturate(var(--sw-sat, 120%))
+    brightness(var(--sw-bright, 1.05));
+  -webkit-backdrop-filter: blur(var(--sw-blur, 18px)) saturate(var(--sw-sat, 120%))
+    brightness(var(--sw-bright, 1.05));
+}
+
+/* 顶部 specular：与面板两块板、笔记窗同一道「光落上去」。
+   ⚠ 这里可以用 ::after，不能用 ::before —— 上一节记的那条坑只针对
+     「整块盖住内容的板」；::after 只占顶部 1px 且 pointer-events:none，
+     落在 padding 区，不会碰到工具条。 */
+html[data-style='glass'] .pv::after {
+  content: "";
+  position: absolute;
+  inset: 0 0 auto;
+  height: 1px;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(90deg,
+    transparent 0%,
+    rgba(247, 247, 247, 0.46) 14%,
+    rgba(247, 247, 247, 0.22) 52%,
+    transparent 88%);
+}
+
+/* ── 14. 密度（「外观」模块的第四项）────────────────────────────────────
+   紧凑档只动「行与行之间」的量：列表行高、设置字段间距。
+   ⚠ **不动字号**：字号一变整页排版都要重算，而且「密度」本来指的就是间距，
+     调字号是另一件事（那是无障碍 / 阅读偏好，不是密度）。
+   ⚠ 选择器带 html[data-density] 前缀 = 0,2,1，刚好盖住组件 scoped 的 0,2,0。 */
+html[data-density='紧凑'] .sw-list__item {
+  padding: 4px 9px;
+}
+
+html[data-density='紧凑'] .pv-item {
+  padding: 4px 9px;
+}
+
+html[data-density='紧凑'] .pfield {
+  margin-bottom: 5px;
 }

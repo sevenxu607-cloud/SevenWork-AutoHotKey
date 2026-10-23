@@ -35,13 +35,19 @@ class DocxHeadingFix {
 
     ; ═══ 主入口 ═══
 
-    ; 产出一份「标题样式名已规范化」的 docx 副本。
+    ; 产出一份「可以直接交给 pandoc」的 docx 副本，做两件事：
+    ;   ① **把自动标题编号固化成文字**（DocxNumberFix）—— 否则 Word 的
+    ;      「第 1 章 / 1.1 / 1）」这些模板编号在 Markdown 里整体消失；
+    ;   ② 把自定义标题样式名规范化成 `heading N` —— 否则 pandoc 一个标题都不认。
+    ;
     ;   src     源 .docx 绝对路径（不修改）
     ;   workDir 本次专用的空目录（调用方给，本能力会先删再建）
     ;
-    ; 返回 {ok:true, path, changed, cleanup}
-    ;        changed = 实际改写的样式块数；0 表示这份文档没有需要改的样式 → path 就是 src
-    ;        cleanup = true 表示 path / workDir / workDir.zip 是本次产物，调用方用完要删
+    ; 返回 {ok:true, path, changed, numbered, warnings, cleanup}
+    ;        changed  = 实际改写的样式块数
+    ;        numbered = 实际写入编号的标题段落数
+    ;        warnings = 无法精确还原的说明（编号格式等），不阻断转换
+    ;        cleanup  = true 表示 path / workDir / workDir.zip 是本次产物，调用方用完要删
     ;      {ok:false, reason}
     ;        reason: bad-arg / no-tar / no-workdir / no-extract / no-styles / no-pack
     static Prepare(src, workDir) {
@@ -65,16 +71,40 @@ class DocxHeadingFix {
 
         ; 读 → 改 → 写。中文样式名要 UTF-8；读用 "UTF-8"（自动跳过 BOM），
         ; 写回用 "UTF-8-RAW"（无 BOM，与源文件一致 —— 别给 pandoc 添新变量）。
+        changedStyles := 0
+        numbered := 0
+        warnings := []
         try {
             xml := FileRead(stylesPath, "UTF-8")
+
+            ; ⚠ **顺序不能反**：编号固化要靠「样式名 → 标题级别」来判断哪些段落是标题，
+            ;   而「半括号标题（五级）」这类名字一旦先被改成 `heading 5`，
+            ;   LevelOf() 就认不出来（它把标准名当「无需处理」返回 0），
+            ;   这些标题的编号会静默漏掉。所以先固化编号，再删样式编号，最后改样式名。
+            numbered := this._FixNumbers(workDir, xml, warnings)
+
+            ; 编号已写进文字，样式上的 numPr 必须去掉 —— 否则 pandoc 仍把标题当
+            ; 有序列表（实测：不删的结果是整篇「1. NLP导论 / 1. 定义」，零标题）。
+            strip := DocxNumberFix.StripStyleNumbering(xml)
+            if (strip.stripped > 0)
+                xml := strip.xml
+
             fixed := this.FixStyles(xml)
-            if (fixed.count = 0)
-                return {ok: true, path: src, changed: 0, cleanup: false}
-            f := FileOpen(stylesPath, "w", "UTF-8-RAW")
-            f.Write(fixed.xml)
-            f.Close()
-        } catch
-            return {ok: false, reason: "no-styles"}
+            if (fixed.count > 0 || strip.stripped > 0) {
+                f := FileOpen(stylesPath, "w", "UTF-8-RAW")
+                f.Write(fixed.xml)
+                f.Close()
+                changedStyles := fixed.count + strip.stripped
+            }
+        } catch as e
+            ; detail 带出真实异常 —— 只给 reason 的话，一句 no-styles 完全看不出
+            ; 是读文件、编号固化还是样式改名出的问题（实测排查花了一轮）。
+            return {ok: false, reason: "no-styles", detail: e.Message}
+
+        ; 两件事都没改 → 直接把原件交给 pandoc，省掉一次打包。
+        if (changedStyles = 0 && numbered = 0)
+            return {ok: true, path: src, changed: 0, numbered: 0
+                , warnings: warnings, cleanup: false}
 
         outZip := workDir . ".zip"
         outDocx := workDir . ".docx"
@@ -88,7 +118,53 @@ class DocxHeadingFix {
         catch
             return {ok: false, reason: "no-pack"}
 
-        return {ok: true, path: outDocx, changed: fixed.count, cleanup: true}
+        return {ok: true, path: outDocx, changed: changedStyles
+            , numbered: numbered, warnings: warnings, cleanup: true}
+    }
+
+    ; 把自动标题编号固化成文字，写回 document.xml。
+    ;
+    ; stylesXml 传**改写前**的原文 —— 见 Prepare 里「顺序不能反」那段。
+    ; numbering.xml 不存在（文档完全没用编号）时直接跳过，不算失败。
+    ; 返回实际写入编号的段落数；任何异常都吞掉并返回 0（编号是增强，不该阻断转换）。
+    ;
+    ; ⚠ warnings 是**普通参数**，不能写成 `&warnings`：AHK v2 的 ByRef 参数
+    ;   要求「变量引用」，而数组本身已经是引用 —— 实测传数组会抛
+    ;   `Parameter #3 ... requires a variable reference, but received an Array`，
+    ;   异常又被外层 try 吞成一句 no-styles，排查时完全看不出是哪一步坏的。
+    static _FixNumbers(workDir, stylesXml, warnings) {
+        docPath := workDir . "\word\document.xml"
+        numPath := workDir . "\word\numbering.xml"
+        if !FileExist(docPath) || !FileExist(numPath)
+            return 0
+        try {
+            docXml := FileRead(docPath, "UTF-8")
+            numXml := FileRead(numPath, "UTF-8")
+            r := DocxNumberFix.FixDocument(docXml, stylesXml, numXml)
+            if !r.ok
+                return 0
+            if (r.numbered > 0) {
+                f := FileOpen(docPath, "w", "UTF-8-RAW")
+                f.Write(r.xml)
+                f.Close()
+            }
+            for w in r.warnings {
+                if !this._HasText(warnings, w)
+                    warnings.Push(w)
+            }
+            return r.numbered
+        } catch as e {
+            warnings.Push("编号固化失败：" . e.Message)
+            return 0
+        }
+    }
+
+    static _HasText(arr, msg) {
+        for v in arr {
+            if (v = msg)
+                return true
+        }
+        return false
     }
 
     ; ═══ styles.xml 改写 ═══

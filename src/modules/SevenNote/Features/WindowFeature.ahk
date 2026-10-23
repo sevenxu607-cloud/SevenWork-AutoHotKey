@@ -43,6 +43,15 @@ class WindowFeature {
     ;   这个逃生门是自然存在的，不必额外加配置项，也不必往用户的 _config.ini 里写状态。
     static _docked := false
 
+    ; ═══ 首开默认客户区（**逻辑单位**）═══
+    ; 原来这里不设尺寸、「交给 AHK 按 DPI 决定」—— 那时有 6 个原生控件把窗口撑到
+    ; 合理大小。v2.9 控件全搬进网页后，空 Gui 只剩 `+MinSize450x300` 撑着，
+    ; 实测首开外框 772×573 物理 = **514×382 逻辑**（客户区更小），写两行字就要手动拉。
+    ; 540×660 的比例（0.82）偏竖，适合成篇文字；本机 150% 下占屏高 62%。
+    ; ⚠ 只用于「没有可用记忆」的首开；有记忆时一律按记忆的尺寸还原。
+    static DefaultW := 540
+    static DefaultH := 660
+
     ; ─── 挂载：订阅伴生窗口生命周期 ───
     ; 组合根在 LauncherModule.Init() 之前调用 —— 监听要在第一次 Alt+C 之前就位。
     static Init() {
@@ -221,10 +230,11 @@ class WindowFeature {
     static Hide() {
         g := State.GetGui()
         EventBus.Emit("Window.BeforeHide")
-        ; ⚠ 玻璃主题的入场编排必须在这里归位：不 reset 的话，隐藏期间那 480ms
-        ;   照样跑完 —— 下次 Show() 的第一帧直接是终态，看起来像「动画没了、闪一下」。
-        ;   页面没挂载时 Eval 返回 {ok:false}，忽略即可。
-        WebHostService.Eval("window.__swfx&&window.__swfx.reset()")
+        ; ⚠ 必须显式传 hwnd：WebHostService 是多实例的（面板 / 提示词库 / 笔记窗各一份），
+        ;   无参会落到「最近挂载的窗口」—— 收了笔记窗却把面板的入场状态复位掉，
+        ;   两个窗口的动画从此互相干扰，而日志里一个字都不会有。
+        if g
+            WebHostService.Eval("window.__swfx&&window.__swfx.reset()", g.Hwnd)
         this._RememberPosition(g.Hwnd)
         g.Hide()
     }
@@ -239,7 +249,12 @@ class WindowFeature {
         g := State.GetGui()
         ghwnd := g.Hwnd
         this._PlaceWindow(g, ghwnd)
-        WinActivate("ahk_id " . ghwnd)
+        ; ⚠ g.Show() 已经激活过一次；这一句是为了「窗口早就存在、只是被别的窗口
+        ;   盖住」的情况。它偶发抛 Target window not found（隐藏→可见那一瞬
+        ;   WinTitle 匹配不到），而窗口其实已经出来了 —— 失败没有用户可见后果，
+        ;   不该让它变成一条错误日志。先确认窗口确实可匹配，再激活。
+        if WinExist("ahk_id " . ghwnd)
+            try WinActivate("ahk_id " . ghwnd)
         ; Phase 3b：把「笔记已落位」交给平台协调器记录。放在 Window.Shown 之前，
         ; 让订阅者拿到的是最终矩形；事件本身不改变窗口行为。
         rect := this._CurrentRect(ghwnd)
@@ -308,7 +323,15 @@ class WindowFeature {
         detectOld := A_DetectHiddenWindows
         DetectHiddenWindows(true)
         try {
-            g.Show("Hide")
+            ; ⚠ 首开与再开的尺寸来源不同：
+            ;   · 没有可用记忆 → 按 DefaultW/DefaultH 建窗（Gui.Show 收**逻辑单位**）；
+            ;   · 有记忆 → **不带尺寸**，交由下面那句 WinMove 按记忆（**物理像素**）还原。
+            ;   两者混用会二次放大（.clinerules/03 记过 g.Move 的 1629→2444）。
+            mem := State.GetHiddenRect()
+            if State.HasHiddenRect() && this.IsUsableRect(mem.x, mem.y, mem.w, mem.h)
+                g.Show("Hide")
+            else
+                g.Show("Hide w" . this.DefaultW . " h" . this.DefaultH)
 
             ; 伴生窗口在屏幕上时按「同宽上下堆叠」摆放 —— 两个窗口拼成一列，界面规整。
             ; 摆不成（伙伴已被关掉、或屏幕塞不下两窗）才退回记忆位置 / 默认落点。
@@ -329,7 +352,27 @@ class WindowFeature {
         }
 
         g.Show()
-        WinRestore("ahk_id " . ghwnd)
+        ; ⚠ 原来这里无条件 WinRestore。它偶发抛 Target window not found（_error.log 里
+        ;   反复出现），而窗口其实已经显示出来了 —— Show 刚把窗口从隐藏翻成可见的
+        ;   那一瞬，WinTitle 匹配仍按「不含隐藏窗口」算，连 ahk_id 也命中不到。
+        ;   真正需要恢复的只有「已最小化」这一种情况，交给 _EnsureVisible 判。
+        this._EnsureVisible(ghwnd)
+    }
+
+    ; 把窗口从「最小化 / 隐藏残留」拉回正常显示。拿不到窗口就什么都不做 ——
+    ; 这条路径上的失败没有用户可见后果（窗口已经 Show 出来了），不该刷日志。
+    ;
+    ; ⚠ 直接对 **hwnd** 调 ShowWindow(SW_SHOWNORMAL=9)，不用 WinRestore：
+    ;   后者按 WinTitle 匹配，在「隐藏 → 可见」那一瞬会抛 Target window not found
+    ;   （_error.log 里反复出现过）。ShowWindow 只认句柄，没有这个时间窗。
+    ; ⚠ 这不是防御性冗余：实测重启后**第一次** Alt+Z，窗口已经 Show 出来、
+    ;   WS_VISIBLE 也是 1，但 IsIconic 仍是 1 —— 屏幕上什么都没有，任务栏里躺着一个。
+    ;   那一刻 WinRestore 正好匹配失败，而窗口看起来「按了没反应」。
+    ;   对已是正常态的窗口调 SW_SHOWNORMAL 是无操作，可以每次调。
+    static _EnsureVisible(ghwnd) {
+        if !ghwnd
+            return
+        try DllCall("user32\ShowWindow", "ptr", ghwnd, "int", 9)
     }
 
     ; 与伴生窗口上下堆叠成规整的一列：同宽、左边对齐、上下紧贴。

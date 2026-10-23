@@ -32,9 +32,11 @@ class FileConvertService {
 
     ; 把选中的路径逐个转成同名 .md。
     ; 返回 {done: [目标路径...], skipped: [{path, reason}]
-    ;       , failed: [{path, reason, code, detail}]}
+    ;       , failed: [{path, reason, code, detail}]
+    ;       , warnings: [{path, msg}]}
+    ;   warnings = 转换成功、但有「没能完全还原」的地方（如不认识的编号格式）。
     static ConvertMany(paths) {
-        result := {done: [], skipped: [], failed: []}
+        result := {done: [], skipped: [], failed: [], warnings: []}
         if !IsObject(paths) || paths.Length = 0
             return result
 
@@ -67,6 +69,10 @@ class FileConvertService {
             if r.ok {
                 this._RelativizeMedia(plan.dst, plan.mediaDir, plan.stem . this.MediaSuffix)
                 result.done.Push(plan.dst)
+                ; 编号固化是「增强」：个别格式没还原到位不该让整次转换失败，
+                ; 但必须让用户看见 —— 否则他会把 Markdown 里那串序号当成原文。
+                for w in prep.warnings
+                    result.warnings.Push({path: src, msg: w})
                 continue
             }
             if (!hadMedia && DirExist(plan.mediaDir)) {
@@ -122,26 +128,37 @@ class FileConvertService {
 
     ; ═══ docx 预处理 ═══
 
-    ; 返回 {src, tmpBase}：tmpBase 非空表示 src 是临时副本，用完要 _CleanupPrepared()。
-    ; 只对 .docx 动手 —— 别的格式没有 word/styles.xml 可改（odt 的样式在
-    ; content.xml，规则完全不同，暂不处理）。
+    ; 返回 {src, tmpBase, numbered, warnings}
+    ;   tmpBase 非空表示 src 是临时副本，用完要 _CleanupPrepared()。
+    ;   numbered = 固化了编号的标题段落数；warnings = 无法精确还原的说明。
+    ; 只对 .docx 动手 —— 别的格式没有 word/styles.xml / numbering.xml 可改
+    ; （odt 的样式在 content.xml，规则完全不同，暂不处理）。
     ;
     ; ⚠ 字段名**不能叫 `base`**：AHK v2 的对象字面量里 `base:` 是「设置原型」的保留键，
     ;   `{src: x, base: "C:\..."}` 直接抛 `Invalid base.`（实测踩到）。
     static _Prepare(plan) {
         if (plan.ext != "docx")
-            return {src: plan.src, tmpBase: ""}
+            return {src: plan.src, tmpBase: "", numbered: 0, warnings: []}
         tmpBase := A_Temp . "\SevenWork\docxfix\" . A_TickCount . "_" . Random(1000, 9999)
         try r := DocxHeadingFix.Prepare(plan.src, tmpBase)
         catch {
             ; 能力层自己抛错（属于 bug 级）时，别把整个解压目录留在 Temp 里 ——
             ; 此时 ConvertMany 的 finally 还没接上，垃圾只能在这儿清。
             this._CleanupPrepared({tmpBase: tmpBase})
-            return {src: plan.src, tmpBase: ""}
+            return {src: plan.src, tmpBase: "", numbered: 0, warnings: []}
         }
-        if !r.ok || !r.cleanup
-            return {src: plan.src, tmpBase: ""}
-        return {src: r.path, tmpBase: tmpBase}
+        if !r.ok || !r.cleanup {
+            ; 预处理没改成任何东西 → 用原件，但警告仍要带出去
+            ; （例如「编号格式未完全还原」时编号算是改过了，走不到这里；
+            ;   这里主要覆盖 no-extract / no-pack 这类彻底失败的兜底）。
+            this._CleanupPrepared({tmpBase: tmpBase})
+            return {src: plan.src, tmpBase: ""
+                , numbered: r.HasProp("numbered") ? r.numbered : 0
+                , warnings: r.HasProp("warnings") ? r.warnings : []}
+        }
+        return {src: r.path, tmpBase: tmpBase
+            , numbered: r.HasProp("numbered") ? r.numbered : 0
+            , warnings: r.HasProp("warnings") ? r.warnings : []}
     }
 
     ; 删掉 _Prepare 留下的三样东西：解压目录、同名 .zip、同名 .docx。

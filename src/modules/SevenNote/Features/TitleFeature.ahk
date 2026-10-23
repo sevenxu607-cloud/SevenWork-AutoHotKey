@@ -58,7 +58,13 @@ class TitleFeature {
     static _Apply(date, oldTag, newTag) {
         if (oldTag = newTag)
             return
-        EventBus.Emit("Save.Requested")
+        ; ⚠ 改名之前必须确认正文已经落盘：文件正在被这次保存改写，
+        ;   紧接着 Move 同一个文件会撞车（Windows 上表现为「拒绝访问」）。
+        ;   而且保存失败时改名，等于把「没存上的那一篇」挂到一个新名字下。
+        saved := NoteSessionService.Save()
+        if !saved.ok && !(saved.HasProp("recoverable") && saved.recoverable)
+            return
+
         if (newTag != "" && NoteStoreService.FindMd(date) = "") {
             EventBus.Emit("Error.Occurred"
                 , {msg: "空笔记无法设标签，请先写内容"})

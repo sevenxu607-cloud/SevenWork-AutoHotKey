@@ -6,6 +6,7 @@ import {
   applyTheme,
   applySettings,
   fetchPanel,
+  markReady,
   type PanelData,
   type PanelRow,
   type Theme,
@@ -121,13 +122,15 @@ async function load(first = false) {
       d = await fetchPanel()
     } catch (e) {
       setStatus('读取面板数据失败：' + String(e), 'err')
+      markReady() // 失败态同样「落定」—— 得让人看见这行红字
       return
     }
   } else {
     d = MOCK
   }
   if (!d) {
-    setStatus('AHK 没有返回面板数据（见 .logs\\_error.log）', 'err')
+    setStatus('AHK 没有返回面板数据（见 %AppData%\\SevenWork\\_error.log）', 'err')
+    markReady()
     return
   }
   data.value = d
@@ -138,6 +141,9 @@ async function load(first = false) {
   pickValues(cur.value)
   saveText.value = '保存设置'
   busy.value = false
+  // 首屏数据已落定 → 放行 AHK 的入场（见 ahk.ts 的 markReady 说明）。
+  // 放在最后一行：数据没到就喊就绪，等于让入场从空壳开始淡入。
+  markReady()
 }
 
 /* ── 保存：三段反馈（保存设置 → 保存中… → ✓ / ✗）──────────────────────
@@ -280,6 +286,10 @@ onMounted(async () => {
       </header>
 
       <div class="pbody">
+        <!-- ⚠ 用 :key 让切页时**整块重建**：这是让 CSS 入场动画重新播放的唯一干净办法
+             （同一个 DOM 上换内容，animation 不会重跑）。代价只有滚动位置重置 ——
+             切页本来就该回到顶部，不算损失。输入值存在 vals 里，不随 DOM 丢。 -->
+        <div :key="cur?.id" class="pbody-in">
         <!-- 视图页按分组；模块页平铺（模块通常只占 1~2 组，再分组只会把两行字拆成三块） -->
         <template v-if="cur?.kind === 'view'">
           <section v-for="g in cur.groups ?? []" :key="g.name" class="pgroup">
@@ -311,25 +321,51 @@ onMounted(async () => {
           <p class="psphint">{{ cur.spec.hint }}</p>
           <div v-for="f in cur.spec.fields ?? []" :key="f.key" class="pfield">
             <label class="pf-label">{{ f.label }}</label>
-            <input
+
+            <!-- 下拉：值即显示，不需要 id→label 映射（模块也不必维护两份表） -->
+            <select
+              v-if="f.kind === 'select'"
               v-model="vals[f.key]"
-              class="sw-input pf-input"
-              :placeholder="f.placeholder"
-              spellcheck="false"
-              @keydown.enter="save"
-            />
-            <button
-              v-if="f.kind === 'folder'"
-              class="sw-btn sw-btn--ghost pf-browse"
-              @click="browse(f.key)"
+              class="sw-input pf-select"
             >
-              浏览…
-            </button>
+              <option v-for="o in f.options ?? []" :key="o" :value="o">{{ o }}</option>
+            </select>
+
+            <!-- 滑杆：数字同步显示在右侧 —— 只看滑杆位置根本不知道「现在是几」 -->
+            <template v-else-if="f.kind === 'range'">
+              <input
+                v-model="vals[f.key]"
+                class="pf-range"
+                type="range"
+                :min="f.min || '0'"
+                :max="f.max || '100'"
+                :step="f.step || '1'"
+              />
+              <span class="pf-num">{{ vals[f.key] }}{{ f.unit }}</span>
+            </template>
+
+            <template v-else>
+              <input
+                v-model="vals[f.key]"
+                class="sw-input pf-input"
+                :placeholder="f.placeholder"
+                spellcheck="false"
+                @keydown.enter="save"
+              />
+              <button
+                v-if="f.kind === 'folder'"
+                class="sw-btn sw-btn--ghost pf-browse"
+                @click="browse(f.key)"
+              >
+                浏览…
+              </button>
+            </template>
           </div>
         </section>
         <p v-else-if="cur?.kind === 'module' && !cur?.failed" class="pempty">
           该模块没有可调设置 —— 参数是写死的（或由它自己的窗口管），上面的热键随时可用。
         </p>
+        </div>
       </div>
 
       <!-- 底栏：状态 + 笔记目录 + 操作。没有它，按钮就「浮在空气里」 -->
@@ -358,17 +394,27 @@ onMounted(async () => {
 .panel {
   height: 100%;
   box-sizing: border-box;
-  padding: 14px;
+  /* 18px 留边 + 16px 板缝：玻璃感全靠「板外那一圈」——
+     14px 在 150% 缩放下只有 21 物理像素，光场几乎没地方落，
+     整窗看起来就是「两块深色方块拼在一起」。 */
+  padding: 18px;
   display: grid;
   grid-template-columns: 216px minmax(0, 1fr);
-  gap: 14px;
+  /* ⚠ 必须显式声明行高：不写的话行是 auto，会被「全部热键」那一长串内容撑开，
+     于是 .pmain 比容器还高 —— 内部的 flex:1 也就失去约束，正文溢出到底栏下面。
+     表现很有迷惑性：滚动条在、底栏也在，只是底部两三行永远被底栏压住。
+     minmax(0, 1fr) 而不是 1fr：0 的下限才允许子项收缩到比内容更小（配合 min-height:0）。 */
+  grid-template-rows: minmax(0, 1fr);
+  gap: 16px;
 }
 
 .pnav,
 .pmain {
   min-height: 0;
   overflow: hidden;
-  border-radius: var(--sw-radius-lg, 14px);
+  /* 14 → 16px：板越大，圆角要跟着大一点才不像「切了角的正方形」。
+     ⚠ 与 .sw-plate 的 border-radius 必须一致，否则 conic 环边会偏出去一圈。 */
+  border-radius: 16px;
   /* 兜底底色：glass 主题下由 glass.css 的 rgba + backdrop-filter 盖掉
      （specificity 0,2,1 > 这里的 0,2,0）。非 glass / npm run dev 时靠它分层。 */
   background: var(--sw-bg-alt);
@@ -402,6 +448,11 @@ onMounted(async () => {
   border-radius: 50%;
   background: var(--sw-accent);
   flex: none;
+  /* 一个小光源：没有它，「SevenWork」只是一个词；有了它就是这块板的品牌灯。
+     ⚠ 只给这一点点外发光 —— 全站只有这一个装饰性光源，多了就廉价。 */
+  box-shadow:
+    0 0 0 3px rgba(255, 255, 255, 0.055),
+    0 0 10px rgba(255, 255, 255, 0.42);
 }
 
 .papp {
@@ -429,6 +480,7 @@ onMounted(async () => {
 }
 
 .pitem {
+  position: relative;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -442,19 +494,88 @@ onMounted(async () => {
   font-size: 13px;
   text-align: left;
   cursor: pointer;
+  /* box-shadow 也要过渡：选中态的左侧光条是 box-shadow 画的，
+     漏了它就会出现「底色渐入、光条瞬现」的半截动画。 */
   transition:
     background 140ms ease,
-    border-color 140ms ease;
+    border-color 140ms ease,
+    box-shadow 140ms ease;
 }
 
-.pitem:hover {
-  background: var(--sw-bg);
+/* ⚠ 悬停 / 选中一律用**半透明白**，不用 var(--sw-bg)：
+   后者是实色 #2E2E2E，铺在玻璃板上就是一块实心深灰补丁 —— 玻璃感当场消失。
+   半透明白会跟板后的光一起走，选中态才像「玻璃上高亮了一块」。 */
+.pitem:hover:not(.on) {
+  background: rgba(255, 255, 255, 0.045);
 }
 
 .pitem.on {
-  background: var(--sw-bg);
-  border-color: var(--sw-border);
+  /* 选中 = 「这块玻璃被照亮了一格」：横向渐弱的白 + 顶部受光 + 左侧光条。
+     ⚠ 别用实色底（var--sw-bg 是 #2E2E2E，铺上去就是一块补丁，玻璃感当场没了）。
+     ⚠ 底下的 -4px 阴影是「贴住板面」的那点接触影，去掉会显得浮起来。 */
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.115) 0%,
+    rgba(255, 255, 255, 0.06) 58%,
+    rgba(255, 255, 255, 0.03) 100%
+  );
+  border-color: rgba(255, 255, 255, 0.1);
   font-weight: 600;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    0 2px 10px -4px rgba(0, 0, 0, 0.35);
+}
+
+/* 左沿光条单独做成伪元素，而不是 box-shadow 的 inset ——
+   只有独立元素才能**展开**：切页时从 30% 高度长到满高（180ms），
+   眼睛会跟着它走，「换到哪一页」是看出来的，不是找出来的。
+   ⚠ 用 scaleY 而不是 height：走合成层，不触发布局。 */
+.pitem.on::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 5px;
+  bottom: 5px;
+  width: 2px;
+  border-radius: 2px;
+  background: var(--sw-accent);
+  transform-origin: center;
+  animation: pbar 180ms cubic-bezier(0.2, 0.9, 0.2, 1) both;
+}
+
+@keyframes pbar {
+  from {
+    transform: scaleY(0.25);
+    opacity: 0.35;
+  }
+  to {
+    transform: scaleY(1);
+    opacity: 1;
+  }
+}
+
+/* 切页入场：整块内容轻微上浮 + 淡入。180ms / 4px ——
+   再久就是在等动画，再深就是在抖。 */
+.pbody-in {
+  animation: pin 180ms cubic-bezier(0.2, 0.9, 0.2, 1) both;
+}
+
+@keyframes pin {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pitem.on::before,
+  .pbody-in {
+    animation: none;
+  }
 }
 
 /* 启动失败的模块：仍占一行，靠亮度下沉 + 「(失败)」两字提示。
@@ -495,15 +616,39 @@ onMounted(async () => {
    页眉回答「我在哪一页」，副标题回答「这一页是干什么的」。拆两级而不是挤成
    一行 —— 一行里两种字号层级就没了（.clinerules/02「面板布局」）。 */
 .phead {
+  position: relative;
   flex: none;
-  padding: 18px 22px 12px;
-  border-bottom: 1px solid var(--sw-border);
+  padding: 18px 22px 14px;
+}
+
+/* 页眉的分隔线：**渐隐**，不是整条实线。
+   ⚠ 实线（1px var(--sw-border)）横贯整块板，会把这页切成上下两张表；
+     从正文左边缘起、向右淡出，才像「光落在板面上的一条折痕」。 */
+.phead::after {
+  content: "";
+  position: absolute;
+  left: 22px;
+  right: 22px;
+  bottom: 0;
+  height: 1px;
+  background: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.17) 0%,
+    rgba(255, 255, 255, 0.05) 62%,
+    transparent 100%
+  );
+  pointer-events: none;
 }
 
 .phead h1 {
-  margin: 0 0 3px;
-  font-size: 18px;
+  margin: 0 0 4px;
+  /* 18px → 24px：页标题是整块内容板的「视觉锚点」，18px 在 940px 宽的面板里
+     只比正文大一号，标题层级读不出来，整页看着就像一张表格。
+     ⚠ 负字距是配合大字号用的（大字母间距天然显松），别拿去套小字。 */
+  font-size: 24px;
   font-weight: 600;
+  letter-spacing: -0.015em;
+  line-height: 1.25;
 }
 
 .phead .sub {
@@ -523,12 +668,28 @@ onMounted(async () => {
   margin-top: 16px;
 }
 
+/* 分组标签：标签 + 一条渐隐的细线。
+   线不是装饰 —— 一屏几十条热键，光靠 11px 小字分组，眼睛分不开段；
+   一条从标签后延伸出去、渐隐收尾的线能把分组切开，又不至于像表格边框。 */
 .pglabel {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   margin-bottom: 6px;
   padding-left: 2px;
   font-size: 11px;
+  font-weight: 600;
   letter-spacing: 0.08em;
   color: var(--sw-dim);
+}
+
+.pglabel::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  /* ⚠ 不用 var(--sw-border)：那是 0.14 的白，压在玻璃板上几乎看不见，
+     整条线等于白画。0.09 的纯白在深底上刚好「有但不抢」。 */
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.09), transparent);
 }
 
 /* 一条热键：键名 / 说明两栏。键名定宽 —— 说明从左边缘对齐才扫得快 */
@@ -538,18 +699,40 @@ onMounted(async () => {
   gap: 12px;
   padding: 6px 10px;
   border-radius: 8px;
+  transition: background 120ms ease;
 }
 
+/* ⚠ 半透明白，不用 var(--sw-bg)：后者是实色 #2E2E2E，
+   铺在玻璃板上就是一块实心深灰补丁（与 .pitem 同一个坑）。 */
 .prow:hover {
-  background: var(--sw-bg);
+  background: rgba(255, 255, 255, 0.035);
 }
 
+/* 键帽：一块真正的「按键」而不是一行等宽字。
+   宽度写死（不是 min-width）—— 说明列的左边缘必须严格对齐，否则一屏扫下来参差不齐。
+   ⚠ 100px 是「最长键名 + 呼吸」的实测下限：本项目最长是 Alt+Shift+C（12px 等宽 ≈ 79px），
+     留 21px 富余；再宽（原来的 118）键帽右侧会空出 40px，说明列被推远、整屏发散。 */
 .pkey {
   flex: none;
-  min-width: 118px;
+  display: block;
+  box-sizing: border-box;
+  width: 100px;
+  padding: 2px 0;
+  border-radius: 5px;
+  /* 键帽要**凸起**：上亮下暗 + 一点向下投影。
+     ⚠ 原来是单一 rgba(.035) + 一圈 inset 环，读起来是「一个浅色矩形」；
+       这块面板上每一行都有一个，平了就整屏像表格。 */
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.07), rgba(255, 255, 255, 0.022));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.1),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.24),
+    0 1px 2px rgba(0, 0, 0, 0.2);
   font-family: ui-monospace, Consolas, 'Courier New', monospace;
   font-size: 12px;
+  line-height: 1.45;
   color: var(--sw-accent);
+  text-align: center;
+  white-space: nowrap;
 }
 
 .plabel {
@@ -630,6 +813,36 @@ onMounted(async () => {
   flex: none;
 }
 
+/* 下拉：外形跟输入框一致，但**不用等宽字体** —— .pf-input 那一档是给路径的 */
+.pf-select {
+  flex: 1;
+  min-width: 0;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: 12px;
+}
+
+/* 滑杆：浏览器默认样式在深色底上几乎看不见（轨道是浅灰、拇指是白方块），
+   所以只保留原生交互、把颜色交给 --sw-accent —— 自己画滑块会把键盘可达性
+   一起丢掉（原生 range 本来就支持方向键、Home/End）。 */
+.pf-range {
+  flex: 1;
+  min-width: 0;
+  height: 18px;
+  accent-color: var(--sw-accent);
+  cursor: pointer;
+}
+
+/* 右侧数值：定宽 + tabular-nums，拖动时数字不会左右抖 */
+.pf-num {
+  flex: none;
+  min-width: 44px;
+  text-align: right;
+  color: var(--sw-dim);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
 /* ═══ 底栏 ═══════════════════════════════════════════════════════════
    状态 + 笔记目录 + 按钮一条带子收住页尾；没有它按钮就「浮在空气里」。 */
 .pfoot2 {
@@ -638,8 +851,12 @@ onMounted(async () => {
   align-items: center;
   gap: 10px;
   padding: 10px 22px;
-  border-top: 1px solid var(--sw-border);
-  background: rgba(0, 0, 0, 0.16);
+  /* 底栏是板内**下沉**的一格：上面一层淡光、下面压暗。
+     ⚠ 原来是单一 rgba(0,0,0,.16)，读起来只是「深一点的横条」；
+       给个垂直走向 + 顶部一道内影，正文滚到底时才像被这条带子收住。 */
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0.1), rgba(0, 0, 0, 0.24));
+  box-shadow: inset 0 1px 0 rgba(0, 0, 0, 0.2);
 }
 
 /* 语义三态：绿 = 成、红 = 败、琥珀 = 提醒。弱了就等于没反馈 */

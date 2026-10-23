@@ -47,6 +47,10 @@ class ConvertFeature {
             LogError("转换失败：" . item.path . " —— " . why)
         }
 
+        ; 警告进日志：ToolTip 只放一句结论
+        for item in r.warnings
+            LogError("转换警告：" . item.path . " —— " . item.msg)
+
         this._Tip(this._Summarize(r))
     }
 
@@ -75,6 +79,8 @@ class ConvertFeature {
             parts.Push("失败 " . r.failed.Length . " 个")
 
         msg := this._Join(parts, " · ")
+        if r.warnings.Length
+            msg .= "`n有 " . r.warnings.Length . " 处未能完全还原（详见 _error.log）"
         if r.failed.Length
             msg .= "`n失败详情见 %AppData%\SevenWork\_error.log"
         return msg
