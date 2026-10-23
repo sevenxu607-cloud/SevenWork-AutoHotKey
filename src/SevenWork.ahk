@@ -181,9 +181,10 @@ Persistent()
 #Include modules\SevenNote\Features\AutoSaveFeature.ahk
 
 
-; 时间戳 / 分隔线 / 分段标题：v2.9 起移交页面（Ctrl+T / Ctrl+H / Ctrl+Shift+H）。
-; 三条命令都要在光标处插字，前端拿 ProseMirror 的 transaction 直接做即可，
-; 比在 AHK 里拼 SendMessage 再算偏移准得多。
+; 时间戳：v2.9 起移交页面（Ctrl+T）。
+; ⚠ v2.16 删除了另外两条页面快捷键：Ctrl+H（插分隔线）与 Ctrl+Shift+H（插「新分段」）。
+;   它们是为旧版纯文本 RichEdit 补的；Markdown 里直接打 `---` / `## ` 就会即时渲染，
+;   快捷键反而多一步（「新分段」还得先选中占位文字）。用户 2026-10-23 反馈后删除。
 
 
 ; ═══════════════════════════════════════════════════════════════════════════

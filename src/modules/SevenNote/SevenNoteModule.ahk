@@ -249,8 +249,9 @@ class SevenNoteModule {
 
     ; 笔记模块的热键
     ; v2.9：27 条 → 7 条。编辑器内部的键（撤销 / 行编辑 / 缩进 / 纯文本粘贴 /
-    ; 时间戳 / 分隔线 / 分段标题 / 搜索）统统交给页面 —— 那些操作都要看光标与选区，
-    ; 前端一套 keymap 天然有上下文；AHK 这边从前只能对着 RichEdit SendMessage 猜。
+    ; 搜索）统统交给页面 —— 那些操作都要看光标与选区，前端一套 keymap 天然有上下文。
+    ; v2.16：页面侧的 Ctrl+H / Ctrl+Shift+H 也已删除（Markdown 直接打 `---` / `## `），
+    ; 页面只保留 Ctrl+T 时间戳 —— 那是编辑器做不到的事。
     ; 平台热键（Alt+S / Alt+Shift+S）不在这里，见 WorkBench.GetHotkeys()。
     static GetHotkeys() {
         return [

@@ -160,18 +160,10 @@ function onKeydown(e: KeyboardEvent) {
     el.insertBlockAfter('paragraph', `🕐 ${hh}:${mm}`)
     return
   }
-  // Ctrl+H：分隔线（真正的 hr 节点，不是一行 `---` 文本）
-  if (e.ctrlKey && !e.altKey && !e.shiftKey && k === 'h') {
-    e.preventDefault()
-    el.insertBlockAfter('hr')
-    return
-  }
-  // Ctrl+Shift+H：二级标题
-  if (e.ctrlKey && !e.altKey && e.shiftKey && k === 'h') {
-    e.preventDefault()
-    el.insertBlockAfter('heading', '新分段')
-    return
-  }
+  // ⚠ 这里原来还有两条：Ctrl+H 插分隔线、Ctrl+Shift+H 插「新分段」二级标题。
+  //   v2.16 删除（用户 2026-10-23 反馈）：两者在 Markdown 里直接打 `---` / `## `
+  //   就会即时渲染，快捷键反而多一步；「新分段」还要求先选中占位文字再改写。
+  //   一个工具只保留编辑器做不到的事（输入时间戳）。
   // Tab / Shift+Tab：列表内改层级，段落内增删行首四空格
   // ⚠ 从前这里只认 Tab、不看 shiftKey —— Shift+Tab 也走进来插了四个空格，
   //   等于「反缩进」这个功能根本不存在（旧文档里曾写着有）。
@@ -200,8 +192,9 @@ onMounted(() => {
     getChars: () => Number(editorRef.value?.getTextLength?.() ?? 0),
     // 底栏的日期 / 星期 / 标签：AHK 侧载入、切日期、保存、改标签后推过来。
     setMeta,
-    // 编辑命令也挂出来：Tab / Ctrl+H / Ctrl+T / Ctrl+Shift+H 走的就是这几个，
+    // 编辑命令也挂出来：Ctrl+T 时间戳、Tab 缩进走的就是这几个，
     // 探针与 AHK 可以直接调它验证行为，不必模拟键盘事件。
+    // ⚠ insertBlockAfter 仍支持 hr / heading（通用能力），但 v2.16 起没有快捷键调用它们。
     insertBlockAfter: (kind: string, text?: string) =>
       editorRef.value?.insertBlockAfter(kind, text ?? '') ?? 'no-editor',
     indent: () => editorRef.value?.indent() ?? 'no-editor',

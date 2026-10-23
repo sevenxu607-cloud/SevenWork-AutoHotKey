@@ -65,6 +65,12 @@
   没反应的原因是热键只在 `CabinetWClass` 生效，在桌面按**完全无声**。
   现在桌面（`Progman` / `WorkerW`）也纳入上下文，无选中项时给 5 秒提示并写日志。
   （真机：`explorer ctx=1` / `desktop ctx=1`；桌面调用 Run → 日志「前台类名 Progman」）
+- **删除 Ctrl+H / Ctrl+Shift+H**（插分隔线 / 插「新分段」）：Markdown 里直接打
+  `---` / `## ` 就会即时渲染，占位文字还得先选中改写。`Ctrl+T` 时间戳保留。
+  （真机：派发 Ctrl+H / Ctrl+Shift+H 后 markdown 长度不变；Ctrl+T 仍会变长）
+- **编辑区底色改成不透明的 `--sw-bg`**：此前 `.main.note` 叠了两层渐变 + 半透明底，
+  背后 body 的光雾透上来 → 「打字区与空白区亮度不同」的割裂感。
+  （真机：`backgroundColor = rgb(46, 46, 46)`；`backdrop-filter: none` 仍生效）
 - **回归**：`tools\run-tests.ps1` 71 条断言全绿；AHK 语法预检通过（含坏样本反向验证，
   退出码 2）；真机启动 6 秒 stderr 空、`_error.log` 无新增；`check-docs.ps1` 通过。
 
