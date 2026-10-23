@@ -29,6 +29,21 @@ const hosted = isHosted()
 const pong = ref('—')
 const ver = ref('—')
 const themeName = ref('—')
+/** 顶部右侧那行「楷体 16pt」—— 旧版右上角显示「主题 · 字体 字号」。 */
+const fontLabel = ref('')
+
+function setBrand(t: Theme | null) {
+  if (!t) return
+  themeName.value = String(t.name ?? '—')
+  const f = String(t.font ?? '')
+  const s = Number(t.fontSize ?? 0)
+  fontLabel.value = f && s ? `${f} ${s}pt` : f
+}
+
+/** 主题 / 字体变化时 `applyTheme` 会派发这个事件（见 ahk.ts）。 */
+function onThemeEvent(e: Event) {
+  setBrand((e as CustomEvent).detail as Theme)
+}
 const err = ref('')
 const text = ref('')
 
@@ -255,6 +270,8 @@ onMounted(async () => {
     markReady()
     return
   }
+  // 顶部那行「主题 · 字体」要跟着换主题 / 换字体走：applyTheme 每次都会派发 sw-theme。
+  window.addEventListener('sw-theme', onThemeEvent)
   try {
     pong.value = String(await ahkCall('ping'))
     ver.value = String(await ahkCall('version'))
@@ -262,7 +279,7 @@ onMounted(async () => {
     if (raw) {
       const t = JSON.parse(raw) as Theme
       applyTheme(t)
-      themeName.value = t.name
+      setBrand(t)
     }
     // 底栏那两条（日期 / 星期 / 标签）：AHK 建窗时会先推一次，页面晚到时靠这里补。
     const rawMeta = await ahkCall<string>('meta')
@@ -332,9 +349,13 @@ onMounted(async () => {
     </main>
 
     <!-- 纯编辑器：**不设题头** —— 标题由笔记正文第一行（`📅 日期 速记`）承担，
-         窗口标题已是 SevenNote；再挂一块「笔记 / Milkdown · …」只会把正文挤下去，
-         说明文字还会在小窗口里折成两行。字数放底部状态行，对应原生版 StatusBar 的位置。 -->
+         窗口标题已是 SevenNote。顶部这条只放旧版那两样：**字数**（左）与
+         **当前主题 · 字体**（右，原版在右上角）；正文不被挤下去。 -->
     <main v-else class="main note">
+      <div class="note-head">
+        <span class="wc">{{ noteChars }} 字</span>
+        <span class="brand">{{ themeName }}<template v-if="fontLabel"> · {{ fontLabel }}</template></span>
+      </div>
       <div class="note-body">
         <!-- v-model 是单向回吐：编辑器是唯一真源，不反向覆写它 -->
         <NoteEditor ref="editorRef" v-model="noteMd" @ready="onEditorReady" />
@@ -343,7 +364,6 @@ onMounted(async () => {
         <span v-if="metaDate" class="meta">📅 {{ metaDate }} {{ metaWeekday }}</span>
         <span v-if="metaTag" class="meta">🏷 {{ metaTag }}</span>
         <span class="st" :class="statusKind" :key="statusSeq">{{ statusText }}</span>
-        <span class="wc">{{ noteChars }} 字</span>
       </div>
     </main>
   </div>
@@ -501,14 +521,43 @@ textarea:focus {
   min-height: 0;
 }
 
+/* 顶部信息行：字数（左）+ 当前主题 · 字体（右）。
+   对应旧版「顶部字数 + 右上角主题标签」；底栏只留日期 / 标签 / 状态。
+   ⚠ 高度要收得很紧：它只是信息条，不能把正文往下挤。 */
+.note-head {
+  flex: none;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 4px 22px;
+  font-size: 12px;
+  color: var(--sw-dim);
+  border-bottom: 1px solid var(--sw-border);
+  background: var(--sw-bg-alt);
+}
+
+.note-head .wc {
+  flex: none;
+  opacity: 0.9;
+  font-variant-numeric: tabular-nums;
+}
+
+.note-head .brand {
+  flex: none;
+  opacity: 0.8;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .note-body {
   flex: 1 1 auto;
   min-height: 0;
 }
 
-/* 底部状态行：对应原生版 `StatusBar` 的位置（日期 / 星期 / 标签 + 提示 + 字数）。
-   ⚠ 中间那格（保存状态）用 flex:1 撑开，字数自然贴右 —— 别再写
-     justify-content: space-between，否则四个元素会被均摊到整行两头。
+/* 底部状态行：对应原生版 `StatusBar` 的位置（日期 / 星期 / 标签 + 提示）。
+   ⚠ 中间那格（保存状态）用 flex:1 撑开，别再写 justify-content: space-between。
    ⚠ 日期为空（还没载入）时不渲染，别留一个空的「📅 」。 */
 .note-foot {
   flex: none;
@@ -564,10 +613,7 @@ textarea:focus {
   padding-left: 8px;
 }
 
-.note-foot .wc {
-  flex: none;
-  opacity: 0.85;
-}
+/* 底栏不再显示字数（已移到顶部信息行） */
 
 .nav {
   cursor: pointer;

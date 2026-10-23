@@ -56,6 +56,15 @@
 .sw-editor .ProseMirror h3 { font-size: 1.02em; }
 .sw-editor .ProseMirror h4 { font-size: 1em; }
 
+/* 强调：**楷体没有 bold**，浏览器会「合成加粗」—— 笔画变粗、发虚，
+   看起来像换了一种字体（用户说的「格式转换后字体不统一」）。
+   Markdown 的 `**x**` 仍然保留（写作体验不变），只是用**亮度**表示强调。
+   ⚠ 想改回真加粗，把 font-weight 改成 bold 即可，但要在真机上确认字形能接受。 */
+.sw-editor .ProseMirror strong {
+  font-weight: 500;
+  filter: brightness(1.18);
+}
+
 /* 首行标题（`# 📅 … 速记` 或用户随手写的第一行 #）与正文同大小 */
 .sw-editor .ProseMirror > h1:first-child {
   font-size: 1em;

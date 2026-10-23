@@ -220,6 +220,10 @@ export function applyTheme(t: Theme): void {
     // ⚠ 字体名可能带空格（华文行楷 / 微软雅黑），必须加引号。
     if (t.font) r.setProperty('--sw-ed-font', `"${t.font}", KaiTi, "楷体", serif`)
     if (t.fontSize) r.setProperty('--sw-ed-size', `${t.fontSize}pt`)
+
+    // 通知 Vue 层（顶部「主题 · 字体」那行）。applyTheme 是全局函数，拿不到组件实例，
+    // 派发事件是唯一不给各视图加耦合的做法。
+    window.dispatchEvent(new CustomEvent('sw-theme', { detail: t }))
   }
 
   // 首次应用没有「旧外观」可溶解 —— 直接落定。播了反而像页面自己闪了一下。

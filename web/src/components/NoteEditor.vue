@@ -6,16 +6,8 @@
    ═══════════════════════════════════════════════════════════════════════ */
 import { ref, onMounted, onBeforeUnmount } from 'vue'
 import { Editor, rootCtx, defaultValueCtx, editorViewCtx } from '@milkdown/kit/core'
-import {
-  commonmark,
-  inputRules as cmInputRules,
-  markInputRules as cmMarkInputRules,
-} from '@milkdown/kit/preset/commonmark'
-import {
-  gfm,
-  inputRules as gfmInputRules,
-  markInputRules as gfmMarkInputRules,
-} from '@milkdown/kit/preset/gfm'
+import { commonmark } from '@milkdown/kit/preset/commonmark'
+import { gfm } from '@milkdown/kit/preset/gfm'
 import { listener, listenerCtx } from '@milkdown/kit/plugin/listener'
 import { history } from '@milkdown/kit/plugin/history'
 import { upload, uploadConfig } from '@milkdown/kit/plugin/upload'
@@ -41,20 +33,12 @@ let disposed = false
 // 那样每次敲键都会 emit 一遍，App.vue 的存盘也跟着白跑。
 let lastStored = props.modelValue ?? ''
 
-/* ⚠ 打字时不自动改格式。
-   Milkdown 的 commonmark / gfm 预设各带一组 input rules（`# ` → 标题、`- ` → 列表、
-   `**x**` → 加粗、`---` → 分隔线、``` ``` ``` → 代码块…）。旧版是纯文本 RichEdit，
-   `#` 就是字符；用户反馈「打着打着字体自己变，没法保持一种格式」。
-   这里把这些插件从预设里滤掉 —— **已存文件里的 Markdown 仍照常渲染**，
-   只是输入过程不再擅自改写格式。*/
-const autoFormatPlugins = new Set<unknown>([
-  ...cmInputRules,
-  ...cmMarkInputRules,
-  ...gfmInputRules,
-  ...gfmMarkInputRules,
-])
-const withoutAutoFormat = (plugins: unknown[]) =>
-  plugins.filter((p) => !autoFormatPlugins.has(p)) as never[]
+/* ⚠ 这里曾经过滤掉 Milkdown 的 input rules（打字时不自动改格式），
+   但用户 2026-10-23 改口：**要原生 Markdown 的编写体验**（`# ` 变标题、`---` 变分隔线、
+   `- ` 变列表），不能因为换成浏览器渲染就丢掉。所以恢复预设自带的 input rules。
+   当时的问题是「转换后字体看起来像换了一种」——已在 CSS 里处理：
+   标题 / 加粗都不再用合成粗体（楷体没有 bold，600+ 会让笔画发虚），
+   层级只靠字号与亮度，字形始终是同一款。 */
 
 onMounted(async () => {
   const mark = (s: string) => { ;(window as any).__noteStage = s }
@@ -97,8 +81,8 @@ onMounted(async () => {
         },
       }))
     })
-    .use(withoutAutoFormat(commonmark))
-    .use(withoutAutoFormat(gfm))
+    .use(commonmark)
+    .use(gfm)
     .use(listener)
     .use(history)
     .use($prose(() => dropCursor()))
