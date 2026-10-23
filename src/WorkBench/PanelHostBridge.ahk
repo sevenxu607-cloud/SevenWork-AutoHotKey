@@ -41,15 +41,10 @@ ThemeJson() {
         . '"bgAlpha":'  . p.bgAlpha . ","
         . '"style":'    . JsText.Escape(p.style)  . ","
         . '"material":' . ThemeMaterialJson(p.material)
-        ; 全局外观覆盖（「外观」模块写的四项）—— 前端把它们写成
-        ; --sw-radius-lg / --sw-dur-* / 密度变量。**必须在这里透传**：
-        ; 少一个字段，面板里调完保存后界面纹丝不动，而日志里什么都没有。
-        . ',"radius":'  . p.radius
-        . ',"motion":'  . JsText.Escape(p.motion)
-        . ',"density":' . JsText.Escape(p.density)
-        . ',"durFast":' . JsText.Escape(p.durFast)
-        . ',"dur":'     . JsText.Escape(p.dur)
-        . ',"durSlow":' . JsText.Escape(p.durSlow)
+        ; ⚠ v2.15 起**不再**透传 radius / motion / density / dur*：
+        ;   那四项已从「外观」设置里撤掉，改成 tokens.css 的默认值
+        ;   （--sw-radius-lg 16px / --sw-dur 120·200·480ms / 无 data-density）。
+        ;   入口没了，就不会再出现「调完保存、界面纹丝不动」那条链路。
         . "}"
 }
 

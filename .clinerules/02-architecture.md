@@ -91,12 +91,16 @@ static _Window() {
 
 | 层面 | 归属 | 管什么 |
 | --- | --- | --- |
-| 主题本身 | `WorkBench\Services\ThemeService` | 色板、材质、`Palette()` 派生、持久化、`Theme.Changed` |
-| 调节入口 | `modules\Theme\ThemeModule` | `[Appearance]` 四个全局参数 |
+| 主题本身 | `WorkBench\Services\ThemeService` | 色板、材质、圆角、动效、`Palette()` 派生、持久化、`Theme.Changed` |
+| 用户入口 | `modules\Theme\ThemeModule` | 当前主题的展示；有多套主题后在这里选 |
 
 删掉模块，所有窗口照样上色 —— 反过来让 Service 调 Module 才是反向依赖。
-写入后复用 `Theme.Changed` 广播（**重刷不是重建**：停在哪页、输入框里的字都不能动）。
-圆角只能落在 `--sw-radius-lg`，**别在 `glass.css` 里写死 px**，否则滑杆就是个摆设。
+换主题复用 `Theme.Changed` 广播（**重刷不是重建**：停在哪页、输入框里的字都不能动）。
+
+**不再提供**材质浓度 / 圆角 / 动效 / 密度这类逐项滑杆：单看几乎看不出差别，却要维护
+一整套「保存 → 广播 → 前端改写变量」的链路，实际只会拼出不协调的界面。
+换观感就改主题表，或改 `tokens.css` 的默认值（`--sw-radius-lg` / `--sw-dur-*`）；
+参数试验留在 `?view=lab`。笔记正文字体 / 字号归笔记模块，不在外观页。
 
 ## 改代码的五条判据
 

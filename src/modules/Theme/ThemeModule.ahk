@@ -1,21 +1,23 @@
 #Requires AutoHotkey v2.0
 ; ═══════════════════════════════════════════════════════════════════════════
-;  ThemeModule —— 外观（主题参数的全局调节入口）
+;  ThemeModule —— 外观（当前主题的展示入口）
 ; ═══════════════════════════════════════════════════════════════════════════
+; 职责边界（v2.15 收敛）：
+;   · **用户在这里看 / 选主题**，不逐项调材质浓度、圆角、动效、界面密度 ——
+;     那四档的实际观感差几乎看不出来，开放滑杆反而更容易拼出一套不协调的界面；
+;   · 每套主题自己负责**完整配方**（色板 / 材质 / 圆角 / 动效）。要改观感就改
+;     ThemeService 的主题表，改一次所有窗口一致，不必让用户凑参数；
+;   · 参数试验留在开发工具（`?view=lab`），不进正式设置页。
+;
 ; 它**不持有主题**：运行期的事实源仍是 WorkBench\Services\ThemeService，
-; 所有窗口也都从那里取色板。本模块只提供「让用户改全局外观参数」的入口，
-; 参数落到 [Appearance]，由 ThemeService 读色板时合并进去。
+; 所有窗口也都从那里取色板。
 ;
 ; 为什么这么拆（.clinerules/02 的依赖方向）：
 ;   · 主题是平台能力，不是某个业务模块的私产 —— **删掉本模块，所有窗口照样
-;     上色**，只是少了一个调节入口；
+;     上色**，只是少了一个「看当前主题」的入口；
 ;   · 反过来，如果让 ThemeService 去调本模块，就是 Service → Module 的反向依赖。
 ;
-; 本页只放**全局**参数：改一次，所有窗口一起变。
-; 窗口之间的差异（笔记正文更安静、提示词库更紧凑）属于「窗口类型」，
-; 是主题自带的分型默认值，不交给用户逐窗调 —— 那是另一层，将来单独做。
-;
-; 没有热键：外观是从 Alt+S 面板里调的，不值得占一个全局键。
+; 没有热键：外观是从 Alt+S 面板里看的，不值得占一个全局键。
 ; ═══════════════════════════════════════════════════════════════════════════
 
 class ThemeModule {
@@ -33,51 +35,24 @@ class ThemeModule {
     static GetMetadata() {
         ; order 5：排在「平台」(0) 之后、各业务模块之前 ——
         ; 外观是全局的，用户找它时通常先往上翻。
-        return {name: this.Name, desc: "全局外观参数 · 在面板里调", order: 5, hotkeys: []}
+        return {name: this.Name, desc: "当前主题 · 整套观感由主题自己定义", order: 5, hotkeys: []}
     }
 
     ; ─── 设置页 ────────────────────────────────────────────────────────
-    ; 平台只认 {label, kind, value}（外加可选的 options / min / max / step / unit），
-    ; 不认识任何业务名词 —— 这里的「材质浓度」「界面密度」都是外观自己的词。
+    ; 平台只认 {title, hint, fields, apply}。这里**故意不给 fields / apply**：
+    ;   前端只在 hasApply 时渲染「保存设置」，空 fields 就只剩说明文字 ——
+    ;   没有「改了没生效」的假入口，也不必为只有一套主题做一个单选项下拉框。
+    ;
+    ; ⚠ 主题名从 ThemeService 取，不在这里存一份：改名只改主题表。
     static GetSettingsSpec() {
-        ov := ThemeService.Overrides()
         return {
             title: "外观",
-            hint: "这四项是全局的：改完所有窗口一起变，窗口停在哪一页、输入框里"
-                . "已经敲的字都不受影响。"
-                . "`n只有「笔记正文更安静」这类窗口差异不在这里调 —— 那是窗口类型的默认值。",
-            fields: [
-                {key: "Material", label: "材质浓度", kind: "select"
-                    , value: ov.material, options: ["薄透", "适中", "浓郁"]}
-                , {key: "Radius", label: "板面圆角", kind: "range"
-                    , value: "" . ov.radius, min: "8", max: "20", step: "1", unit: "px"}
-                , {key: "Motion", label: "动效", kind: "select"
-                    , value: ov.motion, options: ["标准", "轻量", "关闭"]}
-                , {key: "Density", label: "界面密度", kind: "select"
-                    , value: ov.density, options: ["标准", "紧凑"]}
-            ],
-            apply: (values) => ThemeModule._Apply(values)
+            hint: "当前主题：" . ThemeService.GetName()
+                . "`n整套观感（配色、材质、圆角、动效）由主题自己定义，不在这里逐项调 ——"
+                . "几个数值单独拉，很容易凑出一套不协调的界面。"
+                . "`n笔记正文的字体 / 字号归笔记模块，不在这里。"
+                . "`n有多套主题之后，这一页会是主题列表（选中即应用），不会再加参数滑杆。",
+            fields: []
         }
-    }
-
-    ; 值按 fields 声明顺序送来（前端永远补满平台要求的槽位，多出来的忽略）。
-    static _Apply(values) {
-        if (values.Length < 4)
-            return false
-
-        ; ⚠ 一律当字符串写：ThemeService.Overrides() 读回时会再校验一次。
-        ;   这里是唯一的写入口，校验放读侧就不必两边各写一份。
-        ConfigService.Write("Appearance", "Material", values[1])
-        ConfigService.Write("Appearance", "Radius", "" . values[2])
-        ConfigService.Write("Appearance", "Motion", values[3])
-        ConfigService.Write("Appearance", "Density", values[4])
-
-        ; 立刻广播：各窗口按新色板重绘，**不重建**（窗口停在哪页、输入框里的字都在）。
-        ; 主题本身没变、变的是外观 —— 复用 Theme.Changed 而不是新开一条：
-        ;   订阅者要做的都是同一件事，「按当前 Palette 重刷一遍」。
-        p := ThemeService.Palette()
-        EventBus.Emit("Theme.Changed"
-            , {name: p.name, idx: ThemeService.GetCurrent(), dark: p.dark})
-        return true
     }
 }

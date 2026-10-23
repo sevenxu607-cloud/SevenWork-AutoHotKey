@@ -1250,19 +1250,8 @@ html[data-style='glass'] .pv::after {
     transparent 88%);
 }
 
-/* ── 14. 密度（「外观」模块的第四项）────────────────────────────────────
-   紧凑档只动「行与行之间」的量：列表行高、设置字段间距。
-   ⚠ **不动字号**：字号一变整页排版都要重算，而且「密度」本来指的就是间距，
-     调字号是另一件事（那是无障碍 / 阅读偏好，不是密度）。
-   ⚠ 选择器带 html[data-density] 前缀 = 0,2,1，刚好盖住组件 scoped 的 0,2,0。 */
-html[data-density='紧凑'] .sw-list__item {
-  padding: 4px 9px;
-}
-
-html[data-density='紧凑'] .pv-item {
-  padding: 4px 9px;
-}
-
-html[data-density='紧凑'] .pfield {
-  margin-bottom: 5px;
-}
+/* ── 14. 密度 ──────────────────────────────────────────────────────────
+   v2.15 起「外观」不再提供密度档：ahk.ts 不写 html[data-density]，
+   原三条「紧凑」规则（.sw-list__item / .pv-item / .pfield）已删除。
+   ⚠ 想恢复密度必须先恢复数据源（主题表 → ahk.ts），只把 CSS 加回来是死代码。
+   ⚠ 字号始终不归密度管：那是阅读偏好，影响整页排版。 */

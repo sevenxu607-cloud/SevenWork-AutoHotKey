@@ -35,6 +35,19 @@ NoteHostTheme() {
         . "}"
 }
 
+; 状态栏元信息 → JSON（日期 / 中文星期 / 标签）。
+; 对应原生版 StatusBar 的「📅 日期 星期」与「🏷 标签」两条 —— 迁移到 WebView2 后
+; 底栏只剩保存状态与字数，这两条丢了。恢复它们，数据仍只在 AHK 侧有一份。
+; ⚠ 标签以**当前文件路径**为准（文件名就是标签），不读正文里的写法。
+NoteHostMeta() {
+    m := NoteSessionService.Meta()
+    return "{"
+        . '"date":'    . JsText.Escape(m.date)    . ","
+        . '"weekday":' . JsText.Escape(m.weekday) . ","
+        . '"tag":'     . JsText.Escape(m.tag)
+        . "}"
+}
+
 ; 粘贴的图片落盘：base64 → <vault>\_assets\<日期>\sw_*.png，返回 ./_assets/… 相对路径。
 ; 失败返回空串 —— 前端据此回退成内联 data URL，不会让整次粘贴失败。
 NoteHostSaveImage(b64, ext := "png") {
@@ -53,6 +66,7 @@ NoteHostHandlers() {
         ping:      NoteHostPing,
         version:   NoteHostVersion,
         getTheme:  NoteHostTheme,
+        meta:      NoteHostMeta,
         saveImage: NoteHostSaveImage
     }
 }

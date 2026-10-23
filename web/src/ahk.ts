@@ -61,18 +61,10 @@ export interface Theme {
   /** 材质风格：glass = 琉璃；缺省或其它值 = flat（现有米黄外观） */
   style?: string
   /**
-   * 板面圆角（逻辑像素）—— 由「外观」模块的全局设置给，AHK 算好再推来。
-   * 缺省时用 tokens.css 的 --sw-radius-lg。
+   * ⚠ v2.15 起**没有** radius / motion / density / dur* 这些字段：
+   *   「外观」模块不再提供那四项滑杆，圆角与动效改用 tokens.css 的默认值。
+   *   主题真要换形状，改主题表 / tokens.css，而不是让用户拼参数。
    */
-  radius?: number
-  /** 动效档：标准 / 轻量 / 关闭。只用于指纹与显示，实际时长看下面三个 */
-  motion?: string
-  /** 界面密度：标准 / 紧凑 —— 写成 html[data-density]，CSS 按它调间距 */
-  density?: string
-  /** 动效时长。⚠ 由 AHK 按 motion 档算好：换算表只写一处（ThemeService._MotionMs） */
-  durFast?: string
-  dur?: string
-  durSlow?: string
   /**
    * 编辑区字体名（笔记模块的 FontService 给，如「楷体」）。
    * 只作用于编辑区（--sw-ed-font）；面板那类网页仍用系统 UI 字体。
@@ -147,9 +139,6 @@ function visualKeyOf(t: Theme): string {
     t.codeBg ?? '',
     String(t.dark ?? ''),
     mk,
-    String(t.radius ?? ''),
-    t.motion ?? '',
-    t.density ?? '',
   ].join('|')
 }
 
@@ -199,18 +188,10 @@ export function applyTheme(t: Theme): void {
     r.setProperty('--sw-ring', hexToRgba(t.accent ?? t.dim, 0.3))
     root.dataset.theme = t.name
 
-    // ── 全局外观（「外观」模块的四项）────────────────────────────────────
-    // ⚠ 这些**必须**在 paint() 里写：它们和色板一样属于「一次应用」的结果，
-    //   漏写就会出现「面板里调完保存、界面纹丝不动」而日志一片空白。
-    // ⚠ 圆角只落到 --sw-radius-lg（板面）。控件那两档（--sw-radius /
-    //   --sw-radius-sm）不跟着放大 —— 板圆角 20px 而输入框也 20px 会变成药丸。
-    if (t.radius) r.setProperty('--sw-radius-lg', `${t.radius}px`)
-    if (t.durFast) r.setProperty('--sw-dur-fast', t.durFast)
-    if (t.dur) r.setProperty('--sw-dur', t.dur)
-    if (t.durSlow) r.setProperty('--sw-dur-slow', t.durSlow)
-    // 密度走 data 属性而不是变量：CSS 里要按它成组改间距 / 高度，
-    // 写成一堆 --sw-gap-* 反而要每个组件各认一遍。
-    if (t.density) root.dataset.density = t.density
+    // ── 全局外观 ─────────────────────────────────────────────────────────
+    // ⚠ v2.15 起不再从 AHK 接收 radius / dur* / density：
+    //   那四项滑杆已撤掉（观感差几乎看不出，却要维护一整条「保存 → 重刷」链路）。
+    //   圆角 / 动效回落到 tokens.css 的默认值 —— 默认值只写一处，不再两边各存一份。
 
     // 材质：先撤掉上一套主题写过的覆盖，再按白名单写本套的。
     // ⚠ 顺序不能反 —— 先写后清会把本套刚写的值一并删掉。

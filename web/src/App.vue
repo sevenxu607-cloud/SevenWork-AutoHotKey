@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, watch } from 'vue'
 import NoteEditor from './components/NoteEditor.vue'
 import GlassLab from './components/GlassLab.vue'
 import PanelView from './components/PanelView.vue'
@@ -60,10 +60,49 @@ const statusKind = ref<'ok' | 'info' | 'err'>('info')
 const editorRef = ref<any>()
 let pendingMd = ''
 
+/* ── 底栏元信息（日期 / 星期 / 标签）──────────────────────────────────
+   对应原生版 StatusBar 的 `📅 日期 星期` 与 `🏷 标签` —— 迁移到 WebView2 后
+   底栏只剩保存状态和字数，这两条丢了。
+   数据由 AHK 推来（标签取决于文件名，前端判断不了）；页面挂载后再拉一次兜底。 */
+const metaDate = ref('')
+const metaWeekday = ref('')
+const metaTag = ref('')
+
+function setMeta(m: { date?: string; weekday?: string; tag?: string } | null): string {
+  metaDate.value = String(m?.date ?? '')
+  metaWeekday.value = String(m?.weekday ?? '')
+  metaTag.value = String(m?.tag ?? '')
+  return 'ok'
+}
+
+/* ── 底栏字数：取**纯文本**长度，不是 Markdown 长度 ────────────────────
+   ⚠ `noteMd.length` 把 `# `、`**`、链接 URL 全算进去，显示出来比眼里看到的
+     正文多一截（旧版 RichEdit 的字数就是纯文本长度）。
+   ⚠ 每敲一个字都遍历一遍文档没必要：跟旧版一样做节流（120ms 够跟上手感）。 */
+const noteChars = ref(0)
+let charTimer: ReturnType<typeof setTimeout> | undefined
+
+function refreshChars() {
+  noteChars.value = Number(editorRef.value?.getTextLength?.() ?? 0)
+}
+
+function scheduleChars() {
+  if (charTimer) return
+  charTimer = setTimeout(() => {
+    charTimer = undefined
+    refreshChars()
+  }, 120)
+}
+
+// 存储态一变就算一次；真正的字符数仍以编辑器里的文档为准（见 refreshChars）。
+watch(noteMd, () => scheduleChars())
+
 function onEditorReady() {
   // 编辑器建好 = 笔记视图首屏落定。⚠ 必须放在下面那个提前 return **之前** ——
   // 没有待灌内容时（打开当天的空笔记）pendingMd 是空串，早退会让 AHK 白等到超时。
   markReady()
+  // 编辑器可能已经带着内容起来（比如页面重导航），字数先算一次。
+  refreshChars()
   if (!pendingMd) return
   const md = pendingMd
   const r = String(editorRef.value?.setMarkdown(md))
@@ -91,6 +130,7 @@ function setMarkdown(md: string): string {
     }
     pendingMd = ''
     docLoaded = true
+    refreshChars()
     return 'ok'
   } catch (e) {
     return 'ERR ' + String(e)
@@ -156,7 +196,10 @@ onMounted(() => {
     //   从前这里兜底 `?? noteMd.value` —— 首次载入失败时 noteMd 里还是那篇
     //   演示内容，于是「什么都没打开」也能被当成一次正常保存写进当天的 .md。
     getMarkdown: () => (docLoaded ? (editorRef.value?.getMarkdown() ?? noteMd.value) : ''),
-    getChars: () => noteMd.value.length,
+    // 字数口径 = 正文纯文本长度（不含 Markdown 标记），与底栏显示同一个来源。
+    getChars: () => Number(editorRef.value?.getTextLength?.() ?? 0),
+    // 底栏的日期 / 星期 / 标签：AHK 侧载入、切日期、保存、改标签后推过来。
+    setMeta,
     // 编辑命令也挂出来：Tab / Ctrl+H / Ctrl+T / Ctrl+Shift+H 走的就是这几个，
     // 探针与 AHK 可以直接调它验证行为，不必模拟键盘事件。
     insertBlockAfter: (kind: string, text?: string) =>
@@ -175,6 +218,7 @@ onMounted(() => {
         ready: !!editorRef.value,
         loaded: docLoaded,
         chars: noteMd.value.length,
+        textChars: Number(editorRef.value?.getTextLength?.() ?? 0),
       }),
     // 临时诊断：ref 到底绑上没有、expose 出来的是不是我们要的那几个方法
     diag: () => {
@@ -209,6 +253,9 @@ onMounted(async () => {
       applyTheme(t)
       themeName.value = t.name
     }
+    // 底栏那两条（日期 / 星期 / 标签）：AHK 建窗时会先推一次，页面晚到时靠这里补。
+    const rawMeta = await ahkCall<string>('meta')
+    if (rawMeta) setMeta(JSON.parse(rawMeta))
   } catch (e) {
     err.value = String(e)
   }
@@ -282,8 +329,10 @@ onMounted(async () => {
         <NoteEditor ref="editorRef" v-model="noteMd" @ready="onEditorReady" />
       </div>
       <div class="note-foot">
-        <span v-if="statusText" class="st" :class="statusKind">{{ statusText }}</span>
-        <span class="wc">{{ noteMd.length }} 字</span>
+        <span v-if="metaDate" class="meta">📅 {{ metaDate }} {{ metaWeekday }}</span>
+        <span v-if="metaTag" class="meta">🏷 {{ metaTag }}</span>
+        <span class="st" :class="statusKind">{{ statusText }}</span>
+        <span class="wc">{{ noteChars }} 字</span>
       </div>
     </main>
   </div>
@@ -446,14 +495,15 @@ textarea:focus {
   min-height: 0;
 }
 
-/* 底部状态行：对应原生版 `StatusBar` 的位置（原来显示日期 / 星期 / 标签）。
-   左边是保存状态（AHK 推来），右边是字数。 */
+/* 底部状态行：对应原生版 `StatusBar` 的位置（日期 / 星期 / 标签 + 提示 + 字数）。
+   ⚠ 中间那格（保存状态）用 flex:1 撑开，字数自然贴右 —— 别再写
+     justify-content: space-between，否则四个元素会被均摊到整行两头。
+   ⚠ 日期为空（还没载入）时不渲染，别留一个空的「📅 」。 */
 .note-foot {
   flex: none;
   display: flex;
   align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
+  gap: 14px;
   padding: 6px 22px;
   font-size: 12px;
   color: var(--sw-dim);
@@ -461,7 +511,14 @@ textarea:focus {
   background: var(--sw-bg-alt);
 }
 
+.note-foot .meta {
+  flex: none;
+  opacity: 0.9;
+  white-space: nowrap;
+}
+
 .note-foot .st {
+  flex: 1 1 auto;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

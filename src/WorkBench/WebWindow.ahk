@@ -45,6 +45,12 @@ class WebWindow {
         this._placeMode := this._Opt(opts, "place", "center")
         this._placeTop := this._Opt(opts, "placeTop", 120)
         this._onReady  := this._Opt(opts, "onReady", "")
+        ; 标题栏是否保留「最小化」按钮。
+        ; ⚠ 不能走 _Opt：它的规则是「空串即缺省」，而这里缺省值是 false，
+        ;   false 与空串在它的判断里区分不开。只有管理面板这种**会停留操作的**
+        ;   窗口才明确传 true；提示词库 / 笔记预览之类随手呼出的窗口保持原样。
+        this._minimizeBox := (IsObject(opts) && opts.HasProp("minimizeBox"))
+            ? !!opts.minimizeBox : false
 
         ; 运行时状态
         this._gui := ""
@@ -123,6 +129,11 @@ class WebWindow {
     ;   旧尺寸的画面（右侧留一条底色）。
     Activate() {
         try {
+            ; 最小化的窗口直接 Show() 只是把任务栏按钮点亮，用户眼前仍然什么都没有；
+            ; 而它此刻的 WinGetPos 是屏幕外的停放位（-21333 一类），按它算 Fill / 摆位
+            ; 都会落到看不见的地方。所以先恢复，再走常规的 Show + Fill。
+            if DllCall("user32\IsIconic", "ptr", this._hwnd, "int")
+                WinRestore("ahk_id " . this._hwnd)
             this._gui.Show()
             WinActivate("ahk_id " . this._hwnd)
             WebHostService.Resize(this._hwnd)
@@ -251,9 +262,12 @@ class WebWindow {
     _Build() {
         p := ThemeService.Palette()
 
-        ; ⚠ 不加 +AlwaysOnTop：窗口一置顶，DirSelect 之类的系统对话框会被压在
+        ; 不加 +AlwaysOnTop：窗口一置顶，DirSelect 之类的系统对话框会被压在
         ;   下面看不见（它是独立的顶层窗口，owner 置顶时它也跟着被盖）。
-        g := Gui("-MinimizeBox -MaximizeBox", this._title)
+        ; ⚠ 最小化按钮由调用方决定（WebWindow 的 minimizeBox）：管理面板是常驻窗口，
+        ;   用户会把它挪去任务栏；其余小窗仍禁用，免得标题栏多一个用不到的按钮。
+        guiOpts := "-MaximizeBox" . (this._minimizeBox ? "" : " -MinimizeBox")
+        g := Gui(guiOpts, this._title)
         g.SetFont("s10", "Microsoft YaHei UI")
         g.BackColor := p.win
         ; 非客户区（标题栏 / 边框）的玻璃背衬 —— 客户区整个交给 WebView2。

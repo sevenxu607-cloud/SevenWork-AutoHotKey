@@ -74,11 +74,31 @@ class SevenNoteModule {
         ; 保存结果的可视反馈：底栏那一行。窗口没开时推送会失败，忽略即可。
         EventBus.On("Note.Status", (data) => SevenNoteModule._PushStatus(data))
 
+        ; 改标签 = 文件改名：底栏的「🏷 标签」要跟着换（路径已在 TitleFeature 里更新）。
+        EventBus.On("Title.Changed", (*) => NoteSessionService.PushMeta())
+
         ; ⚠ 字体 / 字号偏好必须在这里显式加载 —— 全项目没有第二处调它。
         ;   从前 `FontService.Apply()` 开头就 `if !State.GetEd() return`，而这个调用
         ;   压根不存在，于是用户在旧版调过的字号（[Appearance] FontSizeIndex）
         ;   一直躺在配置里没用上，新编辑区永远 14pt。
         FontService.LoadFromConfig()
+
+        ; 退出守卫：Alt+Shift+S 时平台逐条问这里的检查函数。
+        ; ⚠ 登记在 Init（不是 Start）：它只回答「能不能退」，不碰窗口、不读内容。
+        EventBus.Emit("Exit.Guard", {id: "笔记", check: (*) => SevenNoteModule.ExitCheck()})
+    }
+
+    ; 退出前把当前笔记存一次（平台只认 {ok, reason}）。
+    ; ⚠ 保存失败**不放行**：退出等于放弃这次改动，而窗口一关状态栏那行提示也看不见了。
+    ;   唯一例外是 recoverable —— 冷启动 / 页面还没挂，本来就没有可丢的内容。
+    static ExitCheck() {
+        r := NoteSessionService.Save()
+        if r.ok
+            return {ok: true, reason: ""}
+        if r.HasProp("recoverable") && r.recoverable
+            return {ok: true, reason: ""}
+        return {ok: false, reason: "笔记没能保存（"
+            . (r.HasProp("reason") ? r.reason : "未知原因") . "）"}
     }
 
     ; 换主题：窗口底色 + 标题栏 + 推给前端页面。
@@ -226,7 +246,7 @@ class SevenNoteModule {
     ; v2.9：27 条 → 7 条。编辑器内部的键（撤销 / 行编辑 / 缩进 / 纯文本粘贴 /
     ; 时间戳 / 分隔线 / 分段标题 / 搜索）统统交给页面 —— 那些操作都要看光标与选区，
     ; 前端一套 keymap 天然有上下文；AHK 这边从前只能对着 RichEdit SendMessage 猜。
-    ; 平台热键（Alt+S / Alt+Shift+Z）不在这里，见 WorkBench.GetHotkeys()。
+    ; 平台热键（Alt+S / Alt+Shift+S）不在这里，见 WorkBench.GetHotkeys()。
     static GetHotkeys() {
         return [
             ; ── 【窗口】──

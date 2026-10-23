@@ -226,13 +226,27 @@ function onKeydown(e: KeyboardEvent) {
   }
 }
 
+/* ── 未保存检测：退出时 AHK 会 Eval 这里，判断「面板里有没有改了没保存的设置」──
+   ⚠ 必须**纯前端**完成（只比较内存里的编辑值与 spec 带回的原值），
+     绝不能再回调 hostObjects —— 这条路径跑在 AHK 的退出流程里，
+     一次跨进程等待就足以让退出卡住。
+   ⚠ 只有带 apply 的页才有「保存」语义；热键页没有可改的值，直接算未改。 */
+function hasPending(): boolean {
+  const row = cur.value
+  if (!row?.spec?.hasApply) return false
+  return (row.spec.fields ?? []).some(
+    (f) => (vals.value[f.key] ?? '') !== (f.value ?? ''),
+  )
+}
+
 onMounted(async () => {
   window.addEventListener('keydown', onKeydown)
 
   // AHK 侧面板已经开着时再按 Alt+S（或某个模块请求「打开我这一页」）：
   // ShowHelp 会 Eval('__swpanel.goto(id)')。挂在这里而不是模板里 ——
   // Eval 的字符串碰不到模块作用域（同 main.ts 的 __sevenwork）。
-  ;(window as any).__swpanel = { goto }
+  // hasPending 由退出流程调用（Alt+Shift+S），没有它就只能当「没有改动」。
+  ;(window as any).__swpanel = { goto, hasPending }
 
   // 主题：AHK 推送优先，拿不到就用 CSS 里的默认值（npm run dev 时走这条）
   if (hosted) {

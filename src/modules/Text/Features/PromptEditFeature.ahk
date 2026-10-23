@@ -25,6 +25,11 @@ class PromptEditFeature {
     ; 不为一个便利值去动 Config（Kernel 冻结区）。
     static _lastCat := ""
 
+    ; 打开时记下的内容基线（标题 / 分类 / 正文）。
+    ; 退出守卫靠它判断「改了没保存」；空串 = 当前没有正在编辑的内容
+    ; （保存成功或按 Esc 放弃后都会清掉，用户再按退出就不该被拦）。
+    static _dirtyBase := ""
+
     ; 删除是否已「上膛」（第一次点过、等第二次点）。见 OnDeleteClick()
     static _delArmed := false
     ; 倒计时定时器的闭包引用 —— 第二次点击 / 关窗时要能用同一个引用把它停掉
@@ -80,14 +85,91 @@ class PromptEditFeature {
         this._gui.Show("w520 h480")
         try WinActivate("ahk_id " . this.Hwnd())
         try this._title.Focus()
+
+        ; 基线必须在填完值之后取：_SetCatText 走 WM_SETTEXT，值要落定；
+        ; 放在赋值之前会记成上一次的残留，于是「刚打开就算脏」。
+        this._dirtyBase := this._Snapshot()
     }
 
     static Hide() {
         ; 停掉删除倒计时并复位 —— 否则下次打开窗口还停在「确认删除」状态
         this._StopDeleteTimer()
         this._ResetDelete()
+        ; 收起 = 这次编辑结束（保存成功 / 用户按 Esc 放弃）。清掉基线，
+        ; 免得用户明明放弃了改动、退出时还被问一次。
+        this._dirtyBase := ""
         if IsObject(this._gui)
             try this._gui.Hide()
+    }
+
+    ; ─── 未保存检测（退出守卫用）────────────────────────────────────────
+    static _Snapshot() {
+        return {title: this._title.Value
+            , cat: this._GetCatText(), body: this._body.Value}
+    }
+
+    static IsDirty() {
+        if !IsObject(this._gui) || !IsObject(this._dirtyBase)
+            return false
+        ; 控件可能已经跟着窗口一起没了（系统注销 / 异常销毁）。这时「算不出改没改」，
+        ; 按「没改」放行 —— 否则守卫抛错会永远拦着退出，用户只能杀进程。
+        if !IsObject(this._title) || !IsObject(this._body)
+            return false
+        b := this._dirtyBase
+        try {
+            return this._title.Value != b.title
+                || this._GetCatText() != b.cat
+                || this._body.Value != b.body
+        } catch {
+            return false
+        }
+    }
+
+    ; 退出守卫：有未保存内容就把窗口摆到眼前并拦下退出，返回 {ok, reason}。
+    ; ⚠ 不用 MsgBox 做「保存 / 放弃 / 取消」三选：编辑窗是 AlwaysOnTop，模态框
+    ;   会被压在后面（删除确认那段注释记过同一个坑），用户只会觉得「按退出没反应」。
+    ;   这里改成：拒绝退出 + 在提示行写清下一步 —— 保存在 Ctrl+S，放弃按 Esc。
+    static ExitCheck() {
+        if !this.IsDirty()
+            return {ok: true, reason: ""}
+
+        ; 窗口可能已经隐藏（Esc 只是 Hide，内容还在）—— 原样露出来。
+        ; ⚠ 不能调 Open()：它会按 _editing 重新填一遍，把用户刚敲的字覆盖掉。
+        if !this.IsShowing()
+            this._RevealKeepingEdit()
+        else
+            try WinActivate("ahk_id " . this.Hwnd())
+
+        this._ShowHint("有未保存的修改：Ctrl+S 保存，或按 Esc 放弃后再退出", true)
+        return {ok: false, reason: "提示词「" . this._DirtyName() . "」有未保存的修改"}
+    }
+
+    ; 把已隐藏的编辑窗原样露出来：不重填内容、不重置基线
+    static _RevealKeepingEdit() {
+        if !IsObject(this._gui)
+            return
+        try {
+            this._gui.Show("w520 h480")
+            WinActivate("ahk_id " . this.Hwnd())
+        }
+    }
+
+    static _DirtyName() {
+        if IsObject(this._editing)
+            return this._editing.title
+        t := Trim(this._title.Value)
+        return (t = "") ? "新建的提示词" : t
+    }
+
+    ; 提示行统一入口：warn = true 时加 ⚠ 前缀并换警示色。
+    static _ShowHint(text, warn := false) {
+        if !IsObject(this._hint)
+            return
+        try {
+            this._hint.Value := (warn ? "⚠ " : "") . text
+            this._hint.SetFont("s9 c"
+                . (warn ? this._WarnColor() : ThemeService.Palette().dim), "楷体")
+        }
     }
 
     ; ═══ 建窗 ═══

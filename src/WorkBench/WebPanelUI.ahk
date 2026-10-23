@@ -88,6 +88,9 @@ class WebPanelUI {
             dataDir:  "panel",
             handlers: PanelHostHandlers,
             place:    "center",
+            ; 管理面板是「会停留操作」的窗口：允许最小化到任务栏，
+            ; 而 Esc / × 仍然是隐藏（不退出程序）—— 两者语义不同，别合并。
+            minimizeBox: true,
             esc:      () => this.Close()
         })
     }

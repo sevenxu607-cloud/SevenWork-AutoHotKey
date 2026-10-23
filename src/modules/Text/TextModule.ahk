@@ -34,6 +34,10 @@ class TextModule {
         ; 而 Feature 之间零调用，由模块内部转发不算越界。
         EventBus.On("Theme.Changed", (*) => PromptWindowFeature.OnThemeChanged())
         EventBus.On("Theme.Changed", (*) => PromptEditFeature.OnThemeChanged())
+
+        ; 退出守卫：编辑窗里还有没保存的修改时拦下退出（Alt+Shift+S）。
+        ; 平台只认 {ok, reason} —— 这里不碰窗口生命周期，只如实报告。
+        EventBus.Emit("Exit.Guard", {id: "提示词", check: (*) => PromptEditFeature.ExitCheck()})
     }
 
     ; ─── 上下文 ───

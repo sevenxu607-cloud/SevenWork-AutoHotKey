@@ -68,7 +68,31 @@ class NoteSessionService {
         this._docPath := src.path
         this._docLoaded := true
         State.SetDate(date)
+        ; 底栏的日期 / 星期 / 标签跟着这一篇走（对应旧版 StatusBar.SetDate / RefreshTag）
+        this.PushMeta()
         return {ok: true, created: src.created, unchanged: false}
+    }
+
+    ; ═══ 状态栏元信息 ═══
+    ; 日期 / 中文星期 / 标签 —— 对应原生版 StatusBar 的两条显示。
+    ; ⚠ 标签以当前文件路径为准（文件名就是标签），不看正文里的写法。
+    static Meta() {
+        date := this._docDate
+        tag := (this._docPath != "") ? NoteStoreService.TagFromFileName(this._docPath) : ""
+        return {date: date
+            , weekday: (date != "") ? NoteStoreService.GetWeekday(date) : ""
+            , tag: tag}
+    }
+
+    ; 把 Meta() 推到页面底栏。
+    ; 窗口没开 / 页面还没起来时 Eval 返回 ok:false —— 忽略即可：
+    ; 页面 onMounted 会自己拉一次，切日期与保存成功时这里还会再推。
+    static PushMeta() {
+        hwnd := State.GetGuiHwnd()
+        if !hwnd
+            return
+        WebHostService.Eval("window.__swnote&&window.__swnote.setMeta&&window.__swnote.setMeta("
+            . NoteHostMeta() . ")", hwnd)
     }
 
     ; ═══ 落盘 ═══
@@ -90,6 +114,9 @@ class NoteSessionService {
     ; `Note.Status` 只给笔记窗口的底栏用（带 text / kind），与其他模块无关。
     static _Report(r) {
         if r.ok {
+            ; 保存可能顺带改了文件名（改标签），底栏那两条要跟着更新。
+            ; 放在分支之前：空笔记 / 无改动同样可能刚改过标签。
+            this.PushMeta()
             if r.HasProp("empty") {
                 EventBus.Emit("Save.Completed"
                     , {time: FormatTime(, "HH:mm"), empty: true})

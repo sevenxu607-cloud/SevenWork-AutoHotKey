@@ -152,6 +152,26 @@ defineExpose({
   },
 
   /**
+   * 正文可见字符数（**不含 Markdown 标记**）。
+   *
+   * ⚠ 不能用 `props.modelValue.length`：那是存储态 Markdown，`# `、`**`、链接 URL
+   *   全都算进去 —— 显示出来会比眼里看到的正文多一截。旧版 RichEdit 的字数就是
+   *   纯文本长度（EM_GETTEXTLENGTHEX），这里对齐那个口径。
+   * ⚠ 用 `textBetween` 而不是 `doc.textContent`：后者把相邻块直接拼起来，
+   *   跨段落的字数会偏少；这里用 `\n` 补回块间分隔（只取长度，不影响内容）。
+   */
+  getTextLength(): number {
+    if (!editor) return 0
+    try {
+      const view = editor.ctx.get(editorViewCtx)
+      const doc = view.state.doc
+      return doc.textBetween(0, doc.content.size, '\n', '\n').length
+    } catch {
+      return 0
+    }
+  },
+
+  /**
    * 增加一级缩进：列表项内真的下沉一层（Markdown 嵌套列表）。
    *
    * ⚠ **普通段落里什么都不做**，这是有意的：
