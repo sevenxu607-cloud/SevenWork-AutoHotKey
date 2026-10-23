@@ -94,6 +94,10 @@
 - **字体档位缩到 4 款**：`FontService.Fonts` 删掉仿宋 / 微软雅黑 / 黑体（用户 2026-10-23），
   只剩楷体 / 华文行楷 / 华文新魏 / 方正舒体。删的是**末尾三项**，1–4 的下标不变，
   当前字体不会被顶掉。（真机：`count=4`，循环 1→2→3→4→1）
+- **旧笔记的行尾 `\` 与 `&#x20;` 一并归一**：`ahk.ts` 新增 `normalizeLegacyMarkdown`，
+  `toDisplayMarkdown` / `toStoredMarkdown` 都走它 —— 行尾 `\`（硬换行标记）变成段落分隔，
+  `&#x20;` 还原成空格，围栏代码块内不动。
+  （真机：`line1\ / line2\ / &#x20;line3` → 3 个段落，DOM 与落盘均无 `\` / `&#x20;`）
 - **回归**：`tools\run-tests.ps1` 71 条断言全绿；AHK 语法预检通过（含坏样本反向验证，
   退出码 2）；真机启动 6 秒 stderr 空、`_error.log` 无新增；`check-docs.ps1` 通过。
 

@@ -368,12 +368,48 @@ export function toDisplayUrl(src: string): string {
 }
 
 /**
+ * 旧格式清理：行尾 `\`（硬换行）与 `&#x20;`（行首空格转义）。
+ *
+ * 为什么需要（用户 2026-10-23 反馈）：
+ *   · 行尾 `\` 是 Markdown 的「硬换行」标记，但 Milkdown 既不把它当换行、也不隐藏它
+ *     —— 于是它在编辑区里**原样显示**，保存时又被写回文件，越存越多；
+ *   · `&#x20;` 是行首空格被转义后的样子，Milkdown 同样不解析，直接显示成 HTML 实体。
+ *
+ * 做法：把行尾 `\` 变成**段落分隔**（空行）—— 这样每行独立成段，渲染才稳定；
+ *   `&#x20;` 还原成空格。只处理围栏代码块之外（代码块里的 `\` 是内容，不能动）。
+ */
+function normalizeLegacyMarkdown(md: string): string {
+  const lines = md.split('\n')
+  const out: string[] = []
+  let inFence = false
+  for (const line of lines) {
+    if (/^\s*(```|~~~)/.test(line)) {
+      inFence = !inFence
+      out.push(line)
+      continue
+    }
+    if (inFence) {
+      out.push(line)
+      continue
+    }
+    const hit = line.match(/\\+$/)
+    if (hit) {
+      out.push(line.slice(0, -hit[0].length).replace(/[ \t]+$/, ''))
+      out.push('') // 段落分隔
+      continue
+    }
+    out.push(line.replace(/&#x20;/g, ' '))
+  }
+  return out.join('\n')
+}
+
+/**
  * markdown 里的图片相对路径 → 显示 URL。
  * 只动 `![alt](src)`，普通链接 `[t](u)` 不碰。
  * ⚠ 不支持 `![a](x.png "标题")` 这种带 title 的写法 —— 本项目不产生它。
  */
 export function toDisplayMarkdown(md: string): string {
-  return md.replace(
+  return normalizeLegacyMarkdown(md).replace(
     /(!\[[^\]]*\]\()([^)\s]+)(\))/g,
     (_m, head: string, src: string, tail: string) => head + toDisplayUrl(src) + tail,
   )
@@ -391,6 +427,9 @@ export function toStoredMarkdown(md: string): string {
   //   只认**独占一行**的 `***`（行内 `***粗斜体***` 不碰）；转成 `---` 后仍会被
   //   Milkdown 解析成 hr —— 序列化保证块之间有空行，不会变成 setext 标题。
   out = out.replace(/^[ \t]*\*{3,}[ \t]*$/gm, '---')
+
+  // 旧格式残留（行尾 `\` / `&#x20;`）先归一，再走下面的空行压缩。
+  out = normalizeLegacyMarkdown(out)
 
   // ⚠ 空段落：Milkdown 把「只有一个硬换行的段落」序列化成独占一行的 `<br />`。
   //   Markdown 里段落之间本来就靠空行分隔，空段落没有语义 —— 留着它会让同一篇
