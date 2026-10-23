@@ -467,23 +467,34 @@ class WindowFeature {
 
     ; 等窗口尺寸稳定下来。Show 之后控件的固有尺寸要等 OnSize 跑完才反映到窗口外框上，
     ; 连续两次量到同一个值才认为定型。全程窗口不可见，多花几毫秒用户看不见。
+    ;
+    ; ⚠ **最小尺寸下限不能省**：Show("Hide") 之后 WinGetPos 可能先读到 10 一类的中途值，
+    ;   而「连续两次相同」会把那个 10px 当成终值 —— 拿它算默认落点，窗口会整体偏到
+    ;   屏幕右侧（只剩任务栏或边上一道缝）。`WebWindow._Place` 早就带了这个判据，
+    ;   这边此前漏了，正好对上「首次 Alt+Z 偶尔只出任务栏」。
+    ;   本机窗口最小尺寸是 675×450（逻辑 450×300 @150%），200×120 足够宽裕。
+    static MinStableW := 200
+    static MinStableH := 120
+
     static _MeasureStable(hwnd, &w, &h) {
         prevW := -1, prevH := -1, same := 0
-        loop 40 {
+        loop 60 {
             try
                 WinGetPos(&_, &_, &w, &h, "ahk_id " . hwnd)
             catch
                 return false
-            if (w > 0 && h > 0 && w = prevW && h = prevH) {
+            if (w >= this.MinStableW && h >= this.MinStableH && w = prevW && h = prevH) {
                 if (++same >= 2)
                     return true
             } else {
                 same := 0
             }
             prevW := w, prevH := h
-            Sleep 5
+            Sleep 10
         }
-        return (w > 0 && h > 0)
+        ; 超时：只有量到一个「像样的」尺寸才让调用方继续定位。
+        ; 否则宁可不动（窗口停在 AHK 默认落点），也别把它摆到屏幕外。
+        return (w >= this.MinStableW && h >= this.MinStableH)
     }
 
     ; 默认落点坐标：贴主屏工作区右上角 —— 右边距 Config.PlaceRight、顶边距 Config.PlaceTop。
