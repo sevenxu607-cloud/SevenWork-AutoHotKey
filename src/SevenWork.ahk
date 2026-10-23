@@ -3,56 +3,17 @@
 Persistent()
 
 ; ═══════════════════════════════════════════════════════════════════════════
-;  【警告策略 —— 改默认动作，别再让警告拦住程序】
-;  AHK v2 对「未赋值变量」（VarUnset）默认既开警告、动作又是 **MsgBox** ——
-;  一弹就停摆：模态框挡在屏幕上、热键全无反应，只能手动杀进程。
-;  项目在 v2 迁移期连踩三次（`JSON.Stringify` / `Gui` 当变量名 / 空串比较），
-;  每次症状都是「Alt+Z 没反应」，排查还得先枚举 #32770 读正文。
-;  这里把动作改成 OutputDebug —— VS Code 的 AHK++ 调试器里照样看得到，
-;  但不再拦路。未赋值变量的根本预防手段仍是「变量名写长一点」（guiHwnd / idxMap），
-;  见 .clinerules/03。
+;  SevenWork —— 版本号以 Config.Version 为准（显示在 Alt+S 面板底部，改这里要一并改它）
+;  Windows 本地工作台：WebView2 里的 Milkdown 编辑器 + 若干日常小工具。
+;
+;  本文件只是**组合根**：首次引导、模块装配、启动提示。
+;  分层规则见 .clinerules/02-architecture.md，坑点见 .clinerules/03-ahk-v2.md，
+;  方向 / 进度 / 经验见 docs/INTENT.md / STATE.md / EXPERIENCE.md —— 这里不重复。
+;
+;  ⚠ 未赋值变量（VarUnset）的默认动作改成 OutputDebug：默认的 MsgBox 会**模态卡死**，
+;    症状只是「Alt+Z 没反应」，最容易误判成热键没注册。变量名写长一点仍是首选预防。
 ; ═══════════════════════════════════════════════════════════════════════════
 #Warn VarUnset, OutputDebug
-
-; ═══════════════════════════════════════════════════════════════════════════
-; ═══════════════════════════════════════════════════════════════════════════
-;  SevenWork —— v2.14
-;  Windows 本地工作台：WebView2 里的 Milkdown 编辑器 + 若干日常小工具。
-;  ⚠ 版本号以 Config.Version 为准（显示在 Alt+S 面板底部），改这里要一并改它。
-;  方向见 docs/INTENT.md，当前进度见 docs/STATE.md，开发经验见 docs/EXPERIENCE.md。
-;
-;  【用户旅程编号】组合根启动区与各模块 GetHotkeys / Feature 头部都用这套编号标注归属 ——
-;    ① 唤起与关闭    Alt+Z 呼出 / 隐藏
-;    ② 输入与编辑    粘贴 / 行编辑 / 缩进 / 撤销 / 输入增强
-;    ③ 保存与持久化  加载 / 保存 / 自动保存 / 时间戳
-;    ④ 查看与浏览    搜索 / 字数 / 光标记忆
-;    ⑤ 组织与管理    日期切换 / 搜索跳转 / 标签 / 返回当天
-;    ⚠ 全局热键只覆盖 ①②⑤；③④ 是编辑器内热键（见 src/WorkBench/HotkeyRouter.ahk），
-;      所以全局段里编号看着是跳的（② 之后直接 ⑤），正常。
-;
-;  【整体架构 —— 四层 + 组合根】分层规则与依赖方向见 .clinerules/02-architecture.md
-;    FEATURE 功能层 → SERVICE 服务层 → KERNEL 骨架层 → OS（严禁反向）
-;    另有 CAPABILITY 平台能力（src/WorkBench/Capabilities/，只收 hwnd / 数字 / Rect）
-;    与 Coordinator（跨模块协调，不算能力层）。
-;    本文件只保留组合根：首次引导、模块装配、启动提示；热键注册在 HotkeyRouter，
-;    帮助 / 设置面板在 WebPanelUI（WebView2），其余实现分居 WorkBench/ 与 modules/<模块>/。
-;
-;  【核心技术决策】
-;    1. 编辑区是 WebView2 里的 Milkdown，笔记直接读写 .md，没有中间格式
-;    2. 保存走「同目录临时文件 → 写完替换」；未改动不写盘；空笔记不落盘
-;    3. 标签写进文件名；图片统一收进 _assets/日期/，正文写相对路径
-;    4. 伴生窗口适配走 Launcher.* / SevenNote.Move 事件（见 docs/LAUNCHER-GUIDE.md）
-;    5. Pandoc 只服务 Alt+M 的格式转换，笔记保存链路不经过它
-;    6. 主题分两层：色板在 WorkBench\Services\ThemeService，调节入口在 modules\Theme
-;
-;  【已知坑点】单一事实源在 .clinerules/03-ahk-v2.md，这里只留最要命的三条：
-;    · 内置函数名 / 类名不能做变量名（Clear / log / Gui …），变量名写长最省事
-;    · 异步回调里碰窗口前必须过闸（DetectHiddenWindows(false) + WinExist + !IsIconic）
-;    · 定位要在隐藏态完成（Show("Hide") → 摆好 → Show），否则窗口会「飘一下」
-;
-;  依赖：pandoc.exe（软依赖，未安装则 MD 降级为纯文本）
-; ═══════════════════════════════════════════════════════════════════════════
-
 
 ; ═══════════════════════════════════════════════════════════════════════════
 ;  KERNEL 骨架层 —— 实现见 src/WorkBench/Kernel/
@@ -118,8 +79,8 @@ Persistent()
 ; 字号：仍属笔记模块（只影响 RichEdit，而编辑区已交给 WebView2 —— 见 FontService 头注释）
 #Include modules\SevenNote\Services\FontService.ahk
 
-; （EditorService 已删除：编辑区交给 WebView2 后 State.GetEd() 恒为 0，本类零调用点。
-;   其中的 IsEmptyNote / EmptyNoteHeader 早已迁到 NoteStoreService。）
+; （EditorService 已删除：编辑区交给 WebView2 后它零调用点；
+;   IsEmptyNote / EmptyNoteHeader 早已迁到 NoteStoreService。）
 #Include modules\SevenNote\Services\NoteStoreService.ahk
 
 ; 笔记会话：当前日期 / 实际路径 / 是否已载入，以及 Open / Save 两个动作。

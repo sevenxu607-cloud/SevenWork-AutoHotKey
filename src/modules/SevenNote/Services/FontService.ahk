@@ -40,14 +40,10 @@ class FontService {
         }
     }
 
-    ; 应用字体 / 字号。
-    ;
-    ; ⚠ v2.9 起编辑区是 WebView2：不再往 RichEdit 灌 CHARFORMAT ——
-    ;   `State.GetEd()` 恒为 0，从前那段 `if !hwndEd return` 会让整个函数**直接返回**，
-    ;   连配置都不写、事件都不发。于是「用户在旧版调过的字号」永远停在配置文件里，
-    ;   新编辑区一直用 CSS 的默认 14pt —— 这正是「文字格式和以前割裂」的一半来源。
-    ;   现在取值由 HostBridge.NoteHostTheme() 带给前端（--sw-ed-font / --sw-ed-size），
-    ;   这里只负责：落配置 + 广播 Font.Changed（订阅者按新字号重刷页面）。
+    ; 应用字体 / 字号：只落配置 + 广播 Font.Changed。
+    ; 页面那边的取值由 HostBridge.NoteHostTheme() 带过去（--sw-ed-font / --sw-ed-size）。
+    ; ⚠ 这里**不要**加「编辑区没就绪就 return」的守卫 —— 编辑区已交给 WebView2，
+    ;   那种守卫会让配置写不进去、页面永远停在默认 14pt。
     static Apply() {
         if !this._loading
             this.SaveToConfig()

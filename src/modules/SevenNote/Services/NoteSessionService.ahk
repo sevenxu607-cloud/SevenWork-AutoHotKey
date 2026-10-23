@@ -198,10 +198,6 @@ class NoteSessionService {
         return {ok: true, path: mdPath}
     }
 
-    ; ═══ 只读一天（不碰编辑器）═══
-    ; 给「看一眼有没有这篇」这类查询用，返回 {ok, md, path, created} | {ok:false, reason}
-    static ReadOnly(date) => this._Read(date)
-
     ; ═══ 取编辑器里的存储态 Markdown ═══
     ; 未载入 / 窗口没挂 / 页面未就绪 / JS 取不到 → 空串，调用方据此跳过保存。
     ; ⚠ 一律显式传 hwnd：WebHostService 是多实例的，无参会落到「最近挂载的窗口」上 ——

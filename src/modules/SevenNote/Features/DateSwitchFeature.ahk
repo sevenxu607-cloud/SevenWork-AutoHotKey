@@ -24,7 +24,6 @@ class DateSwitchFeature {
 
         ; 换文档统一由 NoteSessionService 负责：读文件 → 推编辑器 → 确认后才提交日期。
         ; 它失败时日期一动不动，屏幕上还是原来那一篇。
-        State.ResetCaret()
         if !NoteSessionService.Open(targetStr).ok
             return false
         EventBus.Emit("Date.Switched", {date: targetStr})

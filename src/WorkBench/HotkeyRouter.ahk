@@ -113,15 +113,6 @@ class HotkeyRouter {
         HotIf()
     }
 
-    ; 卸掉全部动态热键；供退出 / 重载路径使用，静态表不动。
-    static Reset() {
-        keys := []
-        for key, entry in this._dynamic
-            keys.Push(key)
-        for key in keys
-            this.Remove(key)
-    }
-
     ; 上下文 → HotIf。三种输入：
     ;   · "global" 或没在 contexts 里出现的名字 → 无上下文（全系统）
     ;   · 传函数对象（兼容旧调用）              → 直接用它

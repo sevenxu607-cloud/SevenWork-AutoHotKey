@@ -11,10 +11,9 @@
 ;    ② 把 4 个基色派生成窗口要用的**语义色板**（Palette）
 ;    ③ 换主题时广播 Theme.Changed —— 谁窗口开着谁自己重绘
 ;
-;  ⚠ 它**不碰任何窗口**。从前 Apply() 开局就是 `if !g || !hwndEd return`，
-;    而 WebView2 时代 State.GetEd() 恒为 0 → 那句守卫让整个 Apply 直接返回，
-;    连 SaveToConfig 都不执行（v2.9 迁移时漏掉的回归：主题永远停在主题 1）。
-;    现在上色由窗口自己读 Palette()，平台只回答「当前是哪一套」。
+;  ⚠ 它**不碰任何窗口**：上色由窗口自己读 Palette()，平台只回答「当前是哪一套」。
+;    别加「窗口 / 编辑区没就绪就 return」的守卫 —— 那会让 SaveToConfig 也不执行，
+;    主题永远停在第一套。
 ;
 ;  ⚠ 语义名与前端 web/src/style.css 的 --sw-* 一一对应，派生公式两边一致
 ;    （见 _Shift / _Mix）：网页里的米黄与 AHK 窗口的米黄必须是同一个米黄。
@@ -200,16 +199,4 @@ class ThemeService {
     }
 
     static _Clamp(v) => v < 0 ? 0 : (v > 255 ? 255 : v)
-
-    ; ⚠ 这里曾有一个 `_BuildLabel()`（「主题名 · 字体名 12pt」），随 RichEdit 状态栏
-    ;   一起退场后已无人调用；它还会让平台 Service 反向引用模块里的 `FontService`。
-    ;   删除（v2.15）。要再显示这类文案，让窗口自己拼 —— 平台不该认识 7 种字体。
-
-    ; "RRGGBB" → COLORREF（0x00BBGGRR）：Win32 的颜色是**反着**存的
-    static RGBtoBGR(hexRGB) {
-        r := SubStr(hexRGB, 1, 2)
-        g := SubStr(hexRGB, 3, 2)
-        b := SubStr(hexRGB, 5, 2)
-        return Integer("0x" . b . g . r)
-    }
 }

@@ -38,9 +38,6 @@ class SevenNoteModule {
 
         ; ─── 注册到 State ───
         State.SetGui(g)
-        ; RichEdit 退场：State.GetEd() 从此恒为 0。
-        ; 骨架层冻结，setter 保留（别的模块仍可调用，只是拿不到控件）。
-        State.SetEd(0)
 
         ; ─── 窗口事件 ───
         ; ⚠ 标题栏的 × 必须与 Alt+Z 走同一条路（WindowFeature.Hide）：
@@ -90,9 +87,7 @@ class SevenNoteModule {
                 , kind: "info"}))
 
         ; ⚠ 字体 / 字号偏好必须在这里显式加载 —— 全项目没有第二处调它。
-        ;   从前 `FontService.Apply()` 开头就 `if !State.GetEd() return`，而这个调用
-        ;   压根不存在，于是用户在旧版调过的字号（[Appearance] FontSizeIndex）
-        ;   一直躺在配置里没用上，新编辑区永远 14pt。
+        ;   漏了就会「配置里存着旧字号，页面永远用 CSS 默认 14pt」。
         FontService.LoadFromConfig()
 
         ; 退出守卫：Alt+Shift+S 时平台逐条问这里的检查函数。
@@ -213,7 +208,7 @@ class SevenNoteModule {
         ; Chromium 起来前会先闪一帧深蓝。传 edBg（内容底）而不是 win（窗口底）——
         ; WebView2 铺满整个客户区，它盖住的正是内容区。
         ; ⚠ 这里是 AARRGGBB（COREWEBVIEW2_COLOR），不是 Win32 的 COLORREF ——
-        ;   别套 RGBtoBGR，那会把 R/B 反过来（FFF8E7 → E7F8FF，米黄变淡蓝）。
+        ;   别把 R/B 反过来（FFF8E7 → E7F8FF，米黄变淡蓝）。
         r := WebHostService.Mount(g.Hwnd, dist, "app.local"
             , 0xFF000000 | Integer("0x" . p.edBg))
         if !r.ok {

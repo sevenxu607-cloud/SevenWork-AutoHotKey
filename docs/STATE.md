@@ -39,6 +39,12 @@
   按 `Alt+↑` 会**先存当前笔记、再切到前一天**。`Alt+Z` 仍是 global（窗口藏着也要能叫出来）。
   （真机探针：6 条的 `ctx` 均为 `editor`；**焦点进入 WebView2 编辑器后 `WinActive` 仍命中**
   —— 这是收窄能成立的前提；窗口隐藏后不命中）
+- **精简第二批**：删零调用与 RTF 残留 —— `NoteStoreService.TempDir/DefaultRtfPath/FindRtf`、
+  `NoteSessionService.ReadOnly`、`ThemeService.RGBtoBGR`、`HotkeyRouter.Reset`、
+  `UiPaint.ReleaseColors/GdiCount`；`RenameWithTag` 不再顺手改 `.rtf`；
+  **`State` 瘦身**（17 个零调用方法 + `_edHwnd` 等 7 个死字段，91 → 48 行，Kernel 解冻一次）。
+  注释与资料：组合根头注释 50 → 12 行（历史叙述交给 EXPERIENCE），
+  `docs/LAUNCHER-GUIDE.md` 344 → 146 行（只留机制 / 接入步骤 / 仍生效的数字）。
 - **实验前端移出生产构建**：`GlassLab.vue` 改异步加载、`lab.css` 随组件走。
   （`npm run build`：`index.css` 49.36 → 40.63 kB，另出 `GlassLab.js/css` 各 8.7 kB）
 - **回归**：`tsc --noEmit` 退出码 0；AHK 语法预检 0；真机启动 6 秒 stderr 空、

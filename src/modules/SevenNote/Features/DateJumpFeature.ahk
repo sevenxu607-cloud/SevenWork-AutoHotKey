@@ -121,7 +121,6 @@ class DateJumpFeature {
 
         ; 换文档由 NoteSessionService 统一负责（读文件 → 推编辑器 → 提交日期）。
         ; 它失败时日期不变，屏幕上还是原来那一篇。
-        State.ResetCaret()
         if !NoteSessionService.Open(dateStr).ok
             return false
         EventBus.Emit("Date.Switched", {date: dateStr})

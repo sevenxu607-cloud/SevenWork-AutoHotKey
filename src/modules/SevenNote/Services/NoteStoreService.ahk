@@ -12,8 +12,6 @@ class NoteStoreService {
     ; 保证「文件落在哪」和「markdown 里怎么写」永远出自同一处。
     static AssetsDir(date, rootDir := "") => (rootDir != "" ? rootDir : Config.GetVault()) . "\_assets\" . date
 
-    static TempDir()        => Config.GetVault() . "\_tmp"
-
     static EnsureDir(path) => DirCreate(path)
 
     ; ─── 写文件（先写临时文件，成功后再替换）───
@@ -40,22 +38,8 @@ class NoteStoreService {
         }
     }
 
-    ; ─── 路径拼接：rtf / md 两条只此一处（无标签时的默认名，与带标签名同目录同名式）───
-    static DefaultRtfPath(date) => Config.GetVault() . "\" . date . ".rtf"
-    static DefaultMdPath(date)  => Config.GetVault() . "\" . date . ".md"
-
-    ; ─── 按日期查找实际文件（可能带标签）───
-    static FindRtf(date) {
-        if (date = "")
-            return ""
-        Loop Files, Config.GetVault() . "\" . date . "*.rtf" {
-            if (SubStr(A_LoopFileName, 1, 1) = "_")
-                continue
-            if (SubStr(A_LoopFileName, 1, 10) = date)
-                return A_LoopFileFullPath
-        }
-        return ""
-    }
+    ; ─── 默认路径 / 按日期查文件（可能带标签）───
+    static DefaultMdPath(date) => Config.GetVault() . "\" . date . ".md"
 
     static FindMd(date) {
         if (date = "")
@@ -173,22 +157,20 @@ class NoteStoreService {
         return (text = "")
     }
 
-    ; ─── 重命名 .rtf / .md 两个文件 ───
+    ; ─── 重命名笔记文件（标签写在文件名里）───
     static RenameWithTag(date, oldTag, newTag) {
         oldPrefix := (oldTag = "") ? date : date . "-" . oldTag
         newPrefix := (newTag = "") ? date : date . "-" . newTag
         if (oldPrefix = newPrefix)
             return true
 
-        for ext in ["rtf", "md"] {
-            oldPath := Config.GetVault() . "\" . oldPrefix . "." . ext
-            newPath := Config.GetVault() . "\" . newPrefix . "." . ext
-            if FileExist(oldPath) {
-                try FileMove(oldPath, newPath, false)
-                catch
-                    return false
-            }
-        }
+        oldPath := Config.GetVault() . "\" . oldPrefix . ".md"
+        newPath := Config.GetVault() . "\" . newPrefix . ".md"
+        if !FileExist(oldPath)
+            return true
+        try FileMove(oldPath, newPath, false)
+        catch
+            return false
         return true
     }
 }

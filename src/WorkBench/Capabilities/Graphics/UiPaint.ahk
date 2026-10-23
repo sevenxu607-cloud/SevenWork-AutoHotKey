@@ -194,16 +194,6 @@ class UiPaint {
         return true
     }
 
-    ; 控件被销毁前主动放掉（可选 —— 不调也能被下一次 Sweep() 清掉）。
-    static ReleaseColors(hwnd) {
-        ctl := this._ctl
-        if !IsObject(ctl) || !ctl.Has(hwnd)
-            return false
-        try DllCall("gdi32\DeleteObject", "ptr", ctl[hwnd].brush)
-        ctl.Delete(hwnd)
-        return true
-    }
-
     ; 清掉 hwnd 已失效的条目，返回清掉的个数（探针 / 排障用）。
     static Sweep() {
         ctl := this._ctl
@@ -219,12 +209,6 @@ class UiPaint {
             ctl.Delete(h)
         }
         return dead.Length
-    }
-
-    ; 本进程当前 GDI 对象数（与任务管理器「GDI 对象」同口径）—— 探针用它证明没漏。
-    static GdiCount() {
-        hProc := DllCall("kernel32\GetCurrentProcess", "ptr")
-        return DllCall("user32\GetGuiResources", "ptr", hProc, "uint", 0, "uint")
     }
 
     ; 只挂一次；回调存成字段 —— OnMessage 不去重，重复挂会叠加，且要能记住引用。

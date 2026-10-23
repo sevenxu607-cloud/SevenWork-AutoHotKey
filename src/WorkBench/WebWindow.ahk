@@ -385,7 +385,7 @@ class WebWindow {
         p := ThemeService.Palette()
         ; ⚠ dataDir 必须逐窗不同，理由见文件头。
         ; ⚠ 首帧色是 AARRGGBB（COREWEBVIEW2_COLOR），不是 Win32 的 COLORREF，
-        ;   别套 RGBtoBGR（那会把 R/B 反过来）。
+        ;   别把 R/B 反过来（那会把米黄变成淡蓝）。
         r := WebHostService.Mount(this._hwnd, dist, "app.local"
             , 0xFF000000 | Integer("0x" . p.edBg)
             , EnvGet("LOCALAPPDATA") . "\SevenWork\WebView2-" . this._dataDir)

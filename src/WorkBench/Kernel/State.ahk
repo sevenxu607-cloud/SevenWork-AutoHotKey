@@ -1,25 +1,18 @@
 #Requires AutoHotkey v2.0
-; WorkBench/Kernel/State.ahk
-; Moved from SevenNote.ahk (Phase 1). Implementation unchanged.
+; WorkBench/Kernel/State.ahk —— 骨架层的进程内状态
+;
+; 只剩三样：主窗口、当前日期、隐藏前的位置。
+; ⚠ 编辑区 / 状态栏 / 搜索条那些**控件句柄**与**光标位置**已随 RichEdit 退场删除（v2.17）：
+;   它们现在归页面（WebView2）自己管，AHK 侧没有可记的东西。要再加状态，先问「谁读它」。
 
 class State {
     static _guiObj := ""
-    static _edHwnd := 0
-    static _statObj := ""
     static _loadedDate := ""
-    static _caretMin := -1
-    static _caretMax := -1
 
     static _hiddenX := ""
     static _hiddenY := ""
     static _hiddenW := ""
     static _hiddenH := ""
-
-    static _dateCtrl := ""
-    static _msgCtrl := ""
-    static _themeLabel := ""
-    static _tagCtrl := ""
-    static _searchVisible := false   ; 搜索条是否展开（编辑区矩形要按它算）
 
     static GetGui() => this._guiObj
     ; 供 #HotIf 等表达式安全取主窗口句柄：GUI 尚未创建时返回 0
@@ -31,44 +24,11 @@ class State {
         EventBus.Emit("Gui.Ready", g)
     }
 
-    static GetEd() => this._edHwnd
-    static SetEd(hwnd) {
-        this._edHwnd := hwnd
-        ; ⚠ 同上：暂无订阅者，保留作「编辑区就绪」扩展点
-        EventBus.Emit("Editor.Ready", hwnd)
-    }
-
-    static GetStat() => this._statObj
-    static SetStat(s) => this._statObj := s
-
-    static GetDateCtrl() => this._dateCtrl
-    static SetDateCtrl(c) => this._dateCtrl := c
-    static GetMsgCtrl() => this._msgCtrl
-    static SetMsgCtrl(c) => this._msgCtrl := c
-    static GetThemeLabel() => this._themeLabel
-    static SetThemeLabel(c) => this._themeLabel := c
-    static GetTagCtrl() => this._tagCtrl
-    static SetTagCtrl(c) => this._tagCtrl := c
-
-    static GetSearchVisible() => this._searchVisible
-    static SetSearchVisible(v) => this._searchVisible := v
-
     static GetDate() => this._loadedDate
     static SetDate(d) {
         old := this._loadedDate
         this._loadedDate := d
         EventBus.Emit("Date.Changed", {old: old, new: d})
-    }
-
-    static GetCaret() => {min: this._caretMin, max: this._caretMax}
-    static SetCaret(min, max) {
-        this._caretMin := min
-        this._caretMax := max
-    }
-    static HasCaret() => this._caretMin >= 0
-    static ResetCaret() {
-        this._caretMin := -1
-        this._caretMax := -1
     }
 
     static GetHiddenRect() => {

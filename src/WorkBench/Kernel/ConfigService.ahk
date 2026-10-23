@@ -6,8 +6,7 @@ class ConfigService {
     static _path := ""
     static _defaults := Map()
     ; 读缓存：section|key → 值。IniRead **没有内部缓存**，每次 Read 都是一次磁盘命中，
-    ; 而 GetVault() 在保存链路上要被调至少 6 次（FindRtf / DefaultRtfPath / FindMd /
-    ; DefaultMdPath / TempDir / AssetsDir），RenameWithTag 的双扩展名循环里还要再翻倍。
+    ; 而 GetVault() 在保存链路上会被反复调用（FindMd / DefaultMdPath / AssetsDir 各一次）。
     ; 缓存只在进程内有效：Write 时同步、Init 时清空。
     static _cache := Map()
 
