@@ -71,9 +71,16 @@ class FoldersModule {
     ; ⚠ 声明了却没人实现的热键会「一条都不注册」并写 _error.log（HotkeyRouter 的行为），
     ;   所以这里的名字必须与 GetHotkeys() 里的 ctx 一字不差。
     static GetContexts() {
-        return {
-            explorer: (*) => WinActive("ahk_class " . ExplorerProbe.WindowClass)
-        }
+        ; 资源管理器窗口 + 桌面：两处都能「选中文件」。
+        ; ⚠ 桌面的类名是 Progman / WorkerW（不同 Windows 版本用其中一个），
+        ;   而它**不是** Shell.Application 的 Window —— 选中项读不出来，
+        ;   所以桌面只负责「让热键有反应并给出说明」，真正的转换仍在资源管理器里做。
+        ;   反之，不把桌面列进来时，用户在最常用的地方按 Alt+M 会**完全没反应**
+        ;   （钩子条件不满足就放行给系统），看起来就像「功能坏了」。
+        isExplorer := (*) => (WinActive("ahk_class " . ExplorerProbe.WindowClass)
+            || WinActive("ahk_class Progman")
+            || WinActive("ahk_class WorkerW"))
+        return {explorer: isExplorer}
     }
 
     ; ═══ 面板设置声明 ═══

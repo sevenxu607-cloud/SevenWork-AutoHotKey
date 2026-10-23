@@ -30,7 +30,16 @@ class ConvertFeature {
 
         paths := ExplorerProbe.SelectedPaths(hwnd)
         if (paths.Length = 0) {
-            this._Tip("请先在资源管理器里选中要转换的文件")
+            ; 桌面也能按到这个热键了（见 FoldersModule.GetContexts），但桌面不是
+            ; Shell.Application 的窗口，选中项读不出来 —— 说清楚该去哪操作。
+            cls := WinGetClass("ahk_id " . hwnd)
+            if (cls = "Progman" || cls = "WorkerW") {
+                this._Tip("桌面上的选中项读不到`n请在资源管理器窗口里选中文件再按 Alt+M", 5000)
+            } else {
+                this._Tip("请先在资源管理器里选中要转换的文件`n（Alt+M 只在资源管理器 / 桌面生效）"
+                    , 5000)
+            }
+            LogError("Alt+M：没有读到选中项（前台类名 " . cls . "）")
             return
         }
 
@@ -144,7 +153,7 @@ class ConvertFeature {
         return out
     }
 
-    static _Tip(msg) {
-        FolderWindowFeature.Tip(msg, this.TipMs)
+    static _Tip(msg, ms := 0) {
+        FolderWindowFeature.Tip(msg, ms ? ms : this.TipMs)
     }
 }
