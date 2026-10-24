@@ -27,9 +27,6 @@
 class ZoneService {
     static Section := "Vision"
 
-    ; 三个区域的内部 key。中文标签由 KeyOf / LabelOf 映射。
-    static Zones := ["record", "aux", "work"]
-
     ; hwnd → {role, zone, fill}；只记工作窗口，不记面板 / 提示词库这类浮层。
     static _registered := Map()
 
@@ -146,8 +143,6 @@ class ZoneService {
             this._registered.Delete(hwnd)
     }
 
-    static Registered() => this._registered
-
     ; 把注册表里仍然存在的窗口按各自区域重摆一次（Alt+Shift+V）。
     ; 只摆已开窗口，不启动程序、不激活窗口。
     ; 返回 {ok, applied, skipped, failed}；ok = 没有失败项。
@@ -180,15 +175,6 @@ class ZoneService {
             return "aux"
         if (z = "work" || z = "工作区")
             return "work"
-        return ""
-    }
-
-    static LabelOf(key) {
-        switch this.KeyOf(key) {
-            case "record": return "记录区"
-            case "aux":    return "辅助区"
-            case "work":   return "工作区"
-        }
         return ""
     }
 

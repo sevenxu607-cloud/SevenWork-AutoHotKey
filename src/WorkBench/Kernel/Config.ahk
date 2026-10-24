@@ -43,22 +43,8 @@ class Config {
         return d
     }
 
-    ; 首次呼出时窗口距屏幕工作区右边 / 顶边的距离（物理像素）
+    ; 平台浮层的边距（物理像素）：WebWindow 的 place: "topright" 与笔记的兜底落点。
     static PlaceRight := 15
     static PlaceTop := 264
     static AutoSaveInterval := 120000
-    ; 字数 / 滚动同步的巡检间隔。**150ms 是实测出来的**（v2.4.4）：
-    ;   · 巡检本身几乎免费 —— 1000 次 `GetScrollInfo` 实测 0ms；
-    ;   · 真正花钱的只有「检测到脱节」后那一次 `EM_SETSCROLLPOS` 重排（小窗 2.4ms/次）；
-    ;   · 500ms 时删掉一片空行，画面要等半秒才「啪」地跳一次 —— 用户报的「生硬」；
-    ;   · 50ms 那版在真机上出过问题（删除过程中逐帧重排，画面抽搐）。
-    ;   150ms 让删除过程中画面每 150ms 跟一次、删完立刻收尾，且不会逐帧重排。
-    static StatInterval := 150
-    ; 双窗并存（Alt+C 唤起 PowerShell / Alt+X 唤起 DeepSeek）时的「可见」间距（物理像素）：
-    ; 两窗之间的缝、窗口到工作区顶/底的边距。
-    ; ⚠ 这里算的是**肉眼看到**的距离 —— 按 DWM 的可见边界算，不含 Win11 的不可见调整边框。
-    ;   本机实测 `WinGetPos` 的矩形比可见边界每边多 9px（左 −9 / 上 0 / 右 9 / 下 9），
-    ;   若直接按矩形拼，设 12 的缝看上去会是 12 + 9 = 21。
-    static DockGap := 6
-    static DockMargin := 10
 }

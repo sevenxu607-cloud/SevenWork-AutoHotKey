@@ -3,101 +3,76 @@
 > **覆盖式更新**：每次会话结束改这一份，不追加流水、不留历史版本（历史在 Git）。
 > 新会话先读这里，再核对代码与 `git log` —— 这张卡是**起点，不是真理**。
 >
-> 更新于 `2026-10-24`　基线提交 `9782ea4`（精简与资料结构收尾）
+> 更新于 `2026-10-24`　基线提交 `5a76bb9`（七个核心应用 + 三区域六阶段完成）
 
 ---
 
 ## 当前焦点
 
-「精简」第二批收尾：批次 A（Markdown 清洁逻辑独立 + 代码区保护 + 前端测试）与
-批次 B（删零调用代码、实验前端移出生产构建）已完成并验证；剩下是文档收尾与用户目视。
+七个核心应用与三区域已完成并验证；剩**用户手按验证新热键**与目视观感。
+一键启动 / 自定义布局按用户决定暂缓，视界页只保留说明与 `Alt+Shift+V`。
 
 ## 已完成（括号内是验证范围）
 
-### 本轮（2026-10-24）
+### 本轮（2026-10-24 区域化）
 
-- **Markdown 清洁逻辑抽成 `web/src/markdown.ts`**，并补上**代码区保护**：围栏 / 缩进 /
-  行内代码里的 `***`、行尾反斜杠、`&#x20;`、`<br />` 一律不动。此前 `toStoredMarkdown`
-  会改写代码注释里的字节。
-  （`node --test web/tests/markdown.test.mjs` 17 条全绿，其中 4 条专测代码区；
-  反向验证：故意改坏 → 4 条变红且退出码 1，恢复 → 全绿）
-- **`tools\run-tests.ps1` 同时跑两套测试**：AHK 71 条 + web 17 条，`=== TESTS PASSED ===`、退出码 0。
-- **面板切页不再丢未保存设置**：每页各留一份编辑值，`hasPending()` 查**所有页**。
-  （真机探针：改文件夹槽位 → `pending-same-page=true`；切到别的页 →
-  `pending-other-page=true`；切回来 `kept-value=Z:\probe`，值还在）
-- **删零调用代码**：`BackdropService`（19KB，贴图被 WebView2 合成表面整片盖住）+
-  `bg` / `bgAlpha` / `bgFit` 三字段；`FolderSlotService.GetAll/Describe`、
-  `LoadFeature.ReadNote`、`SaveFeature.Take`、`NoteSessionService.GetPath/IsLoaded`、
-  `NoteSessionService.Reset`、`PromptStoreService.PathFor`、`ExplorerProbe.IsExplorerWindow`、
-  `ModuleRegistry.Unregister`、`WebHostService._bgUnsupported`；
-  `PeerCoordinator` 的「记录最近落位」半截（含它的 `Init()`）；`msftedit.dll` 预加载。
-- **`NoteEditor.insertBlockAfter` 收窄**到只插段落（分隔线 / 二级标题在 Markdown 里直接打）。
-- **删掉 Tab / Shift+Tab 缩进**（`App.vue` 的按键分支 + `NoteEditor.indent/outdent` +
-  桥上的两个方法）：普通段落里 `indent` 本就是空操作（四个空格在 Markdown 里是代码块），
-  `Shift+Tab` 只能删用户手打的空格 —— 留着只是把 Tab 吞掉，还让人以为能用。
-- **笔记热键收窄到 `editor`**（字体 ×3、日期 ×3）：从前是 `global`，在 Excel / 浏览器里
-  按 `Alt+↑` 会**先存当前笔记、再切到前一天**。`Alt+Z` 仍是 global（窗口藏着也要能叫出来）。
-  （真机探针：6 条的 `ctx` 均为 `editor`；**焦点进入 WebView2 编辑器后 `WinActive` 仍命中**
-  —— 这是收窄能成立的前提；窗口隐藏后不命中）
-- **精简第二批**：删零调用与 RTF 残留 —— `NoteStoreService.TempDir/DefaultRtfPath/FindRtf`、
-  `NoteSessionService.ReadOnly`、`ThemeService.RGBtoBGR`、`HotkeyRouter.Reset`、
-  `UiPaint.ReleaseColors/GdiCount`；`RenameWithTag` 不再顺手改 `.rtf`；
-  **`State` 瘦身**（17 个零调用方法 + `_edHwnd` 等 7 个死字段，91 → 48 行，Kernel 解冻一次）。
-  注释与资料：组合根头注释 50 → 12 行（历史叙述交给 EXPERIENCE），
-  `docs/LAUNCHER-GUIDE.md` 344 → 146 行（只留机制 / 接入步骤 / 仍生效的数字）；
-  另删图主题遗留的两个工具脚本：`tools/rebake-backdrop.ps1`（11.7 KB）与
-  `tools/pick-theme-colors.ps1`（5.3 KB）—— 都为零引用，随图主题一起退场。
-- **实验前端移出生产构建**：`GlassLab.vue` 改异步加载、`lab.css` 随组件走。
-  （`npm run build`：`index.css` 49.36 → 40.63 kB，另出 `GlassLab.js/css` 各 8.7 kB）
-- **规则修正：对话档案改为每次会话必写**（原触发条件「用户要求 / 有方向性内容」无判据，
-  被每轮自我豁免；且它是收尾清单里唯一「仓库外、无脚本可检查」的动作）。收尾清单加「先列目录核对」。
-  补写 `2026-10-24-slimming.md`（10-23 之后首次恢复；10-24 上半段原话不在本窗口，已标注不补造）。
-- **回归**：`tsc --noEmit` 退出码 0；AHK 语法预检 0；真机启动 6 秒 stderr 空、
-  `_error.log` 无新增；`Alt+Z` 出 `SevenNote`、`Alt+S` 出「SevenWork · 工作台」。
+- **命名统一**：笔记 / 文本 / 文件 / 应用 / 视界 / 按键 / 主题；`Id`、目录与事件名不动。
+  （面板探针：7 个应用，顺序符合；底部文案「核心应用」）
+- **`ZoneMath`**：三区域纯几何 + 50 条单测（小屏收缩、宽度收缩、副屏偏移、no-fit）。
+  （反向验证：改坏 gap → 5 条红、退出码 1；恢复 → 全绿）
+- **`ZoneService`**：读 `[Vision]` 配置、算矩形、摆放、注册表、`Center`。
+  （探针 2560×1600：记录区 `1773,10,772,564`、辅助区 `1773,580,772,1020`、工作区 `10,10,1757,1590`）
+- **笔记落记录区**：`WindowFeature` 重写，删伙伴适配 8 方法 + 4 字段、位置记忆、
+  `PeerCoordinator`、`Launcher.*` / `SevenNote.Move` 事件；`State` 去掉隐藏矩形。
+  （探针：笔记可见边界 = 记录区；净删约 430 行）
+- **应用 / 文件落区**：文件槽位加「打开到」（3 槽 × 2 字段）；终端 / 浏览器落辅助区；
+  删 `PeerLayoutService`、`LauncherModule._OnMove`。
+  （面板探针：文件 6 字段、默认工作区；README 已同步）
+- **应用槽位**：`Alt+Shift+1/2/3`，每槽「命令行 + 区域」，支持任意 exe；`CommandLine.ExeOf`
+  解析第一段 + 13 条单测；`Alt+C` / `Alt+X` 保留。
+  （面板探针：Launcher 5 条热键、6 字段、默认辅助区）
+- **视界模块**：`Alt+Shift+V` 恢复布局（只摆已开窗口），面板说明页（无假字段）。
+  （探针：`restore=1/0/0`，笔记摆回记录区）
+- **浮层落辅助区**：提示词库（`WebWindow place:"zone"`）与日期检索（`ZoneService.Center`）。
+  （探针：提示词可见 `1607,672,934,827`、日期 `1697,698,844,775`，纵向居中辅助区）
+- **笔记取消置顶**：去掉 `+AlwaysOnTop`。（探针：`WS_EX_TOPMOST=0`）
+- **清理**：`RectMath.PlanStack/Overlaps/CornerRect`、`Config.StatInterval/DockGap/DockMargin`、
+  `ZoneService` 零调用；测试 AHK 133 → 109 条（删掉的是旧伙伴适配用例）。
+- **回归**：AHK 109 + web 17 全绿；`check-docs` 退出码 0；真机启动 stderr 空、
+  `_error.log` 无新增；`Alt+Z` 笔记仍落记录区。
 
 ### 此前几轮（细节见 `git log`，只留仍需知道的范围）
 
-- 三份资料拆开（意图 / 状态 / 经验）+ 对话档案放仓库外；`check-docs.ps1` 收尾。
-- 删 `EditorService` 与笔记 `PandocService`（721 行）；笔记直接写 `.md`。
-- 数据安全六项：大小写敏感比对、退出/隐藏前先存盘、标签改名同步路径、DOCX `numPr` 警告等。
-  （真机 + 文件独占锁，副本隔离）
-- 面板最小化；退出键改 `Alt+Shift+S` + 退出守卫（笔记 / 提示词 / 面板三项）。
-- 外观去参数化（撤四档滑杆）；笔记底栏日期 / 星期 / 标签；字数 = 正文纯文本。
-- 字体字号入口恢复（`Alt+Shift+T` / `Alt+=` / `Alt+-`）；字体档位缩到 4 款。
-- Pandoc 锁 pipe table + 合并单元格退回 HTML 时记 warning（真实 docx：1.4s / 86KB）。
-- Markdown 输入转换恢复（`# ` / `---` / `- ` / `**x**`），标题与 `strong` 字重压到 500。
-- 排版与底色：首行同字号、编辑区不透明 `--sw-bg`、去 `backdrop-filter`、
-  `scrollbar-gutter: stable`；`Ctrl+H` / `Ctrl+Shift+H` 删除，`Ctrl+T` 保留。
+- Markdown 清洁逻辑独立 + 代码区保护 + 前端测试；面板切页保留未保存值。
+- 三份资料拆开；删 `EditorService` 与笔记 `PandocService`；笔记直接写 `.md`。
+- 数据安全六项、退出守卫、面板最小化、外观去参数化、字体字号入口恢复。
+- 图主题与 `BackdropService` 退场；实验前端移出生产构建。
 
 ## 未完成 / 已知风险
 
 | 项 | 状态 |
 | --- | --- |
-| **提示词「放弃」链路** | 依赖 `Hide()` 清基线；Esc / × / 保存三条路径只做了代码审查 |
-| **笔记字体观感** | 字重与空行已修；楷体 16pt 是否合意仍需目视（`Alt+-` / `Alt+=` 可现场比） |
-| **打字频闪** | 已去编辑页 `backdrop-filter` 并固定滚动条槽位；若仍闪需要录屏或具体触发条件 |
-| **桌面选中项读不到** | 桌面不是 `Shell.Application` 的窗口，`Alt+M` 在桌面只给提示 |
-| **`Alt+M` 自动化不可靠** | 上下文热键走钩子，注入的 `SendKeys` 未必触发；只能手按或探针直接调 `Run()` |
-| **标签显示** | 复用 `TagFromFileName`，但只验过空标签 |
-| **Pandoc 真实 docx** | 普通表格已验证；合并单元格在 Milkdown 里是否可见未验 |
-| **保存失败无自动化用例** | 文件锁路径手工验过，自动化仍缺可注入的路径与锁 |
-| **`markdown.ts` 的代码区判据是词法级** | 围栏、缩进、行内代码已覆盖；**列表里再缩进的代码块**未覆盖 |
-| **`_=<tick>` 防缓存** | `WebWindow._Mount` 给 URL 加时间戳 —— 是否真的必要仍是推断，未做过对照 |
-| **旧外观配置未清理** | `[Appearance]` 的 Material / Radius / Motion / Density 留在 ini 但不读 |
-| 同日多文件只认第一个 | `日期.md` 与 `日期-标签.md` 并存时按日期只匹配第一个 |
-| 分发未验收 | `web/dist` 入库可用，但运行时打包、跨机器首次运行都没试过 |
-| 首次 `Alt+Z` 偶发只出任务栏 | 已补最小尺寸判据；三次首次呼出正常，**偶发是否根治待观察** |
+| **一键启动 / 自定义布局** | **暂缓**（用户 2026-10-24 定）。视界页只有说明与恢复布局；布局字段没有消费者就不写，避免假入口 |
+| **同区多窗口重叠** | 区域只保证「落到哪块」。终端与浏览器都落辅助区；恢复布局会把它们叠在一起，不做堆叠 |
+| **辅助区高度 1020** | 未真机验证 Windows Terminal 会不会按 profile 弹回；终端目前只锚定位置、不改高度 |
+| **最大化窗口落区** | `PlacementExecutor` 已补 `IsZoomed → ShowWindow(SW_RESTORE)`，**未真机验** |
+| **`Alt+Shift+1/2/3`** | 未手按验证输入法 / 驱动是否拦截；`Alt+Shift+V` 同理 |
+| **应用槽位认窗** | 按 exe 文件名；多实例只取第一个，UWP / `cmd /c start` / 提权窗口不支持 |
+| **旧配置项** | `[Paths] DeepSeekW/H` 不再读取；`[Folders]` / `[Apps]` 新增 `SlotNZone`，缺省分别工作区 / 辅助区 |
+| **笔记字体 / 频闪** | 字重与空行已修；楷体 16pt 是否合意、打字是否还闪仍需目视 |
+| **分发未验收** | `web/dist` 入库可用，但运行时打包、跨机器首次运行都没试过 |
 
 ## 试过但没通（别重试，除非有新证据）
 
 | 日期 | 试过什么 | 为什么停 |
 | --- | --- | --- |
-| 2026-10-23 | DWM `SYSTEMBACKDROP` + 拦 `WM_ERASEBKGND`，想让「板外露出桌面」 | 同一组合时好时坏（一次板可见、下一次只剩一角），不稳定，不进生产 |
-| 2026-10-23 | `SetWindowCompositionAttribute`（Acrylic）做系统级玻璃 | 窗口整个消失 —— layered 父窗口把 Chromium 子窗口裁掉 |
-| 2026-10-24 | 图主题（背景图 + `bgAlpha` 贴图） | 贴图是父窗口的 `Static`，被 WebView2 合成表面整片盖住，配了也看不见 |
+| 2026-10-23 | DWM `SYSTEMBACKDROP` + 拦 `WM_ERASEBKGND` | 同一组合时好时坏，不稳定 |
+| 2026-10-23 | `SetWindowCompositionAttribute`（Acrylic） | 窗口整个消失（layered 父窗口裁掉 Chromium 子窗口） |
+| 2026-10-24 | 图主题（背景图 + `bgAlpha` 贴图） | 被 WebView2 合成表面整片盖住 |
+| 2026-10-24 | 伙伴窗口适配（让位 / 堆叠 / 冻结） | 已由三区域取代，代码删除；不要再引入「谁动谁适配」 |
 
 ## 下一步（按顺序，一次做一件事）
 
-1. 用户目视：字体 / 字号是否合意、打字是否还闪、带标签笔记的底栏「🏷 标签」。
-2. 若 Markdown 仍有变形，给**具体那一段**的原文 / 落盘 md / 截图对照。
-3. 首次呼出继续观察几次（偶发只出任务栏）。
+1. 用户手按 `Alt+Shift+1/2/3`、`Alt+Shift+V`，目视三区域、浮层与笔记非置顶的观感。
+2. 换小屏 / 换缩放验一次辅助区高度与最大化窗口落区。
+3. 一键启动若要落地，先解决异步启动模型（串行会占住热键线程）。

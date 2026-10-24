@@ -15,7 +15,7 @@
 ## Commands
 
 ```powershell
-# 纯逻辑回归：AHK 71 条 + 前端 17 条
+# 纯逻辑回归：AHK 109 条 + 前端 17 条
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\run-tests.ps1
 # 文档体检：链接 / 编码 / 版本号 / 围栏 / 本文件行数
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\check-docs.ps1

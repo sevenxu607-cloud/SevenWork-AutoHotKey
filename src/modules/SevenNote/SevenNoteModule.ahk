@@ -22,7 +22,8 @@ class SevenNoteModule {
         g := Gui(, this.Title)
         ; +E0x02000000 = WS_EX_COMPOSITED 已不需要：整个客户区交给 WebView2，
         ; 合成由 Chromium 自己做，没有 RichEdit 那种「先擦后画」的频闪。
-        g.Opt("+AlwaysOnTop +Resize +MinSize450x300")
+        ; 固定落记录区后不再置顶：置顶会挡住工作区里正在用的窗口。
+        g.Opt("+Resize +MinSize450x300")
         ; 首帧底色：Chromium 起来前不铺东西会露白。取当前主题的窗底色同档。
         g.SetFont("s14", "楷体")
         pInit := ThemeService.Palette()

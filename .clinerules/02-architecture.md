@@ -14,6 +14,20 @@
 **严禁反向**：Capability 不得引用 `modules/*`、`EventBus`、业务 Config / State、`LogError`。
 
 `Coordinator/` 是跨模块协调（读业务上下文、发事件、算几何），**不属于** Capability。
+⚠ 当前**没有** Coordinator：旧的 `PeerCoordinator` 已随伙伴适配删除；区域协调在平台
+`Services/ZoneService`。以后出现新的跨模块布局编排再恢复这一层。
+
+### 窗口区域归谁
+
+| 层 | 位置 | 管什么 |
+| --- | --- | --- |
+| CAPABILITY | `WorkBench/Capabilities/Placement/ZoneMath` | 三区域纯几何（只收数字，不读配置） |
+| SERVICE | `WorkBench/Services/ZoneService` | `[Vision]` 配置、`Rect` / `Place` / `Center`、窗口注册表 |
+| 模块入口 | `modules/Vision/VisionModule` | `Alt+Shift+V` 与面板说明；不持有区域 |
+
+模块只调 `ZoneService`（向下依赖），**不要调 `VisionModule`** —— 跨模块零调用。
+新窗口接入 = 启动 / 认窗后 `ZoneService.Place(hwnd, zone)` + `Register`；
+浮层用 `Center`（保留尺寸、居中、夹到工作区）。旧的三个 `Launcher.*` 事件已删除。
 
 ## 组合根与启动顺序
 
@@ -69,7 +83,8 @@ ModuleRegistry.Register(<名字>Module)      ; ② WorkBench.Init() 内
 static _Window() {
     if !IsObject(this._win)
         this._win := WebWindow({title: ..., w: 620, h: 520, view: "prompts"
-            , dataDir: "prompts", handlers: PromptHostHandlers, place: "topright"})
+            , dataDir: "prompts", handlers: PromptHostHandlers
+            , place: "zone", zone: "aux"})
     return this._win
 }
 ```
@@ -77,6 +92,8 @@ static _Window() {
 - **`dataDir` 逐窗不同**：同一 user data folder 建不出第二个 `CoreWebView2Environment`，
   失败藏在 `await()` 里、只表现为「窗口一片纯底色」；
 - **`view`** 落到 `web/src/App.vue` 的 `?view=` 分发；加一个窗口 = 加一个 `v-else-if` + 一个组件；
+- **`place`**：`center`（缺省）/ `topright` / `zone`（配 `zone: "aux"` 落辅助区中心）；
+  浮层比区域宽时不缩放，夹到工作区内 —— 缩放会裁掉控件；
 - **`handlers` 传函数**（不是方法表）；**Esc 回调要写变参** `(*) => …`；
 - **字段名不能与方法同名、也不能声明在类体里**（两类都是 `Property is read-only`）。
 

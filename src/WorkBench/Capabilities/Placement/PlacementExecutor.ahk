@@ -39,6 +39,11 @@ class PlacementExecutor {
             ; 最小化窗口的位置是停放位，别搬 —— 即使 allowHidden 也不碰。
             if DllCall("IsIconic", "ptr", hwnd, "int")
                 return {ok: false, reason: "minimized"}
+            ; 最大化窗口 WinMove 不生效：先恢复成普通窗口再搬。
+            ; 用 ShowWindow(SW_RESTORE=9) 而不是 WinRestore：后者按 WinTitle 匹配，
+            ; 在「隐藏 → 可见」那一瞬可能匹配不到。
+            if DllCall("IsZoomed", "ptr", hwnd, "int")
+                try DllCall("user32\ShowWindow", "ptr", hwnd, "int", 9)
             WinMove(rect.x, rect.y, rect.w, rect.h, "ahk_id " . hwnd)
         } catch as e {
             return {ok: false, reason: "move-failed", error: e.Message}
