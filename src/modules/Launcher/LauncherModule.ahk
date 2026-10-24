@@ -7,7 +7,7 @@
 
 class LauncherModule {
     static Id := "Launcher"
-    static Name := "外部程序"
+    static Name := "应用"
     static _initialized := false
 
     static Init() {
@@ -61,8 +61,10 @@ class LauncherModule {
     }
 
     static GetMetadata() {
-        ; order 让帮助里的「输入增强」保持旧顺序：CapsLock 层 → Alt+C / Alt+X。
-        return {name: this.Name, desc: "PowerShell / DeepSeek · Alt+C", order: 30
+        ; order = 40：面板里按七个应用排列（笔记 10 / 文本 20 / 文件 30 / 应用 40）。
+        ; ⚠ 「输入增强」组内的条目也按模块 order 排，所以 Alt+C / Alt+X 会排在
+        ;   CapsLock（60）之前 —— 这是统一命名的副作用，不是漏改排序。
+        return {name: this.Name, desc: "PowerShell / DeepSeek · Alt+C", order: 40
             , hotkeys: this.GetHotkeys()}
     }
 }

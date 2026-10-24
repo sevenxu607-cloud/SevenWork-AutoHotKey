@@ -18,7 +18,7 @@
 
 class FoldersModule {
     static Id := "Folders"
-    static Name := "文件夹"
+    static Name := "文件"
 
     static _initialized := false
 
@@ -46,18 +46,18 @@ class FoldersModule {
     ; 帮助窗口与面板都从 GetHotkeys / 服务读，不用再改别处。
     static GetHotkeys() {
         return [
-            {ctx: "global", key: "!1", group: "文件夹"
+            {ctx: "global", key: "!1", group: "文件"
                 , line: "   Alt+1            呼出 / 隐藏槽位 1 的文件夹"
                 , fn: (*) => FolderWindowFeature.Toggle(1)},
-            {ctx: "global", key: "!2", group: "文件夹"
+            {ctx: "global", key: "!2", group: "文件"
                 , line: "   Alt+2            呼出 / 隐藏槽位 2 的文件夹"
                 , fn: (*) => FolderWindowFeature.Toggle(2)},
-            {ctx: "global", key: "!3", group: "文件夹"
+            {ctx: "global", key: "!3", group: "文件"
                 , line: "   Alt+3            呼出 / 隐藏槽位 3 的文件夹"
                 , fn: (*) => FolderWindowFeature.Toggle(3)},
             ; 前三条是全局的；这条只在资源管理器前台生效（见 GetContexts）——
             ; 它的输入是「资源管理器里选中的文件」，在别的程序里按到毫无意义。
-            {ctx: "explorer", key: "!m", group: "文件夹"
+            {ctx: "explorer", key: "!m", group: "文件"
                 , line: "   Alt+M            选中的文件转成 Markdown（存到同级目录）"
                 , fn: (*) => ConvertFeature.Run()}
         ]
@@ -105,7 +105,7 @@ class FoldersModule {
             })
         }
         return {
-            title:  "文件夹槽位",
+            title:  "文件槽位",
             hint:   "热键固定为 Alt+1/2/3，指向哪个文件夹随时换；留空 = 该槽位未启用。"
                 . "`n浏览窗口的地址栏能直接粘贴路径（如 D:\Work），上次浏览的位置会被记住。",
             fields: fields,
@@ -113,10 +113,11 @@ class FoldersModule {
         }
     }
 
-    ; 帮助窗口（Alt+S）用：order 决定模块在面板里的先后
-    ; （平台 0 / 笔记 20 / 外部程序 30 / 文件夹 35 / 文本 40）。
+    ; 帮助窗口（Alt+S）用：order 决定模块在面板里的先后。
+    ; 七个核心应用按「笔记 / 文本 / 文件 / 应用 / 视界 / 按键 / 主题」排列；
+    ; 视界占 50，本模块占 30。
     static GetMetadata() {
-        return {name: this.Name, desc: "文件夹槽位与转 Markdown · Alt+1/2/3 / Alt+M", order: 35
+        return {name: this.Name, desc: "文件槽位与转 Markdown · Alt+1/2/3 / Alt+M", order: 30
             , hotkeys: this.GetHotkeys()}
     }
 }

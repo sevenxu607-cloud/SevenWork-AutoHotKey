@@ -7,7 +7,7 @@
 
 class KeysInputModule {
     static Id := "KeysInput"
-    static Name := "键位"
+    static Name := "按键"
 
     static Init() {
         ; CapsLockFeature 的状态字段在类加载时已就绪；这里保留模块生命周期入口，
@@ -29,8 +29,8 @@ class KeysInputModule {
     }
 
     static GetMetadata() {
-        ; order = 20：帮助的「输入增强」里排在 Launcher（30）之前，保持旧顺序。
-        return {name: this.Name, desc: "CapsLock 层 · Alt+Shift+C", order: 20
+        ; order = 60：七个应用顺序里排在「视界」之后、「主题」之前。
+        return {name: this.Name, desc: "CapsLock 层 · Alt+Shift+C", order: 60
             , hotkeys: this.GetHotkeys()}
     }
 }

@@ -22,7 +22,7 @@
 
 class ThemeModule {
     static Id := "Theme"
-    static Name := "外观"
+    static Name := "主题"
 
     ; 不建窗口、不订阅事件 —— 参数怎么生效由 ThemeService 负责。
     static Init() {
@@ -33,9 +33,8 @@ class ThemeModule {
     }
 
     static GetMetadata() {
-        ; order 5：排在「平台」(0) 之后、各业务模块之前 ——
-        ; 外观是全局的，用户找它时通常先往上翻。
-        return {name: this.Name, desc: "当前主题 · 整套观感由主题自己定义", order: 5, hotkeys: []}
+        ; order = 70：七个核心应用里排最后 —— 它是横切设置，不是日常入口。
+        return {name: this.Name, desc: "当前主题 · 整套观感由主题自己定义", order: 70, hotkeys: []}
     }
 
     ; ─── 设置页 ────────────────────────────────────────────────────────

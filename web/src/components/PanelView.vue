@@ -76,13 +76,13 @@ const MOCK: PanelData = {
     {
       id: 'Folders',
       kind: 'module',
-      name: '文件夹',
+      name: '文件',
       desc: '三个槽位指向的目录 · Alt+1…3',
       count: 1,
       failed: false,
       hotkeys: [{ key: 'Alt+1', label: '呼出 / 隐藏槽位 1 的文件夹' }],
       spec: {
-        title: '文件夹槽位',
+        title: '文件槽位',
         hint: '热键固定，指向哪个目录可以随时换；留空表示该槽位未启用。',
         hasApply: true,
         fields: [
@@ -308,7 +308,7 @@ onMounted(async () => {
       </nav>
 
       <div class="pfoot">
-        {{ data?.modules ?? 0 }} 个模块 · 共 {{ data?.total ?? 0 }} 条热键
+        {{ data?.modules ?? 0 }} 个核心应用 · 共 {{ data?.total ?? 0 }} 条热键
       </div>
     </aside>
 

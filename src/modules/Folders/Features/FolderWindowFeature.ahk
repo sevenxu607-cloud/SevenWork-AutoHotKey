@@ -111,7 +111,7 @@ class FolderWindowFeature {
         if (state.reason = "missing")
             this.Tip(label . " 指向的目录不存在：`n" . state.path)
         else
-            this.Tip(label . " 还没设置文件夹 —— 已打开面板，选「文件夹」页")
+            this.Tip(label . " 还没设置文件夹 —— 已打开面板，选「文件」页")
         EventBus.Emit("Panel.OpenRequested", {moduleId: "Folders"})
     }
 

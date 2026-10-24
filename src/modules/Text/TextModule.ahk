@@ -79,12 +79,12 @@ class TextModule {
         ]
     }
 
-    ; 帮助窗口（Alt+S）用：order 决定模块在面板里的先后
-    ; （平台 0 / 笔记 10 / 键位 20 / 外部程序 30 / 文件夹 35 / 文本 40）。
+    ; 帮助窗口（Alt+S）用：order 决定模块在面板里的先后。
+    ; 七个核心应用：笔记 10 / 文本 20 / 文件 30 / 应用 40 / 视界 50 / 按键 60 / 主题 70。
     ; ⚠ name / desc 必须给：平台在拿不到 name 时会退回用 Id（英文 "Text"），
     ;   左列就出现一个英文条目，与其余中文模块格格不入。
     static GetMetadata() {
-        return {name: this.Name, desc: "提示词库 · Alt+P", order: 40
+        return {name: this.Name, desc: "提示词库 · Alt+P", order: 20
             , hotkeys: this.GetHotkeys()}
     }
 }
