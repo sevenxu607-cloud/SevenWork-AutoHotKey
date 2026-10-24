@@ -11,6 +11,7 @@
 
 #Include ..\src\WorkBench\Capabilities\Placement\RectMath.ahk
 #Include ..\src\WorkBench\Capabilities\Placement\ZoneMath.ahk
+#Include ..\src\WorkBench\Capabilities\Shell\CommandLine.ahk
 #Include ..\src\WorkBench\Capabilities\Web\JsText.ahk
 #Include ..\src\WorkBench\Capabilities\Document\DocxHeadingFix.ahk
 #Include ..\src\WorkBench\Capabilities\Document\DocxNumberFix.ahk
@@ -18,6 +19,7 @@
 #Include TestLib.ahk
 #Include Cases\RectMath.Tests.ahk
 #Include Cases\ZoneMath.Tests.ahk
+#Include Cases\CommandLine.Tests.ahk
 #Include Cases\JsText.Tests.ahk
 #Include Cases\Docx.Tests.ahk
 
@@ -33,6 +35,7 @@ T_Init(logPath)
 try {
     RectMath_Tests()
     ZoneMath_Tests()
+    CommandLine_Tests()
     JsText_Tests()
     Docx_Tests()
 } catch as e {
