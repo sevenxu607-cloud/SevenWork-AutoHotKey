@@ -11,7 +11,7 @@
 | 记录区 | 笔记、标签对话框 | 笔记填满；标签对话框居中（`CenterIn`） |
 | 辅助区 | 终端、浏览器 | 锚定（尺寸接近区域；WT/Edge 会吸附） |
 | 辅助区浮层 | 提示词库、日期检索 | 填满 |
-| 工作区 | 文件槽位、应用槽位、其他程序 | 填满 + 300 / 900 / 1600ms 复核 |
+| 工作区 | 文件槽位、应用槽位、其他程序 | 填满 + 8 秒内每 500ms 复核 |
 
 几何在 `WorkBench/Services/ZoneService`（`[Vision]` 配置）；纯计算在
 `WorkBench/Capabilities/Placement/ZoneMath`。区域顺序：辅助区贴工作区右下，
@@ -68,7 +68,7 @@ static _ShowAndFocus(hwnd) {
 | 别给 `Run` 传 `"Hide"` | 会换掉宿主（Windows Terminal → conhost，配色 / 尺寸全变） |
 | 物理像素 | `WinMove` / `WinGetPos` 同一单位；`Gui.Move` / `Gui.Show` 收逻辑单位 |
 | 最大化窗口 | `PlacementExecutor` 会先 `IsZoomed → ShowWindow(SW_RESTORE)`；**未真机验** |
-| 程序恢复上次尺寸 | Explorer / Everything 会在露面后套用自己的尺寸：应用与文件必须 `fill:true`，并在 300 / 900 / 1600ms 复核；只锚定会让它们越区或向上漂移 |
+| 程序恢复上次尺寸 | Explorer / Everything 会在露面后套用自己的尺寸：应用与文件必须 `fill:true`，并在 8 秒内每 500ms 复核；只锚定会让它们越区或向上漂移 |
 | 区域只保证落区 | 同区多窗口会重叠（终端与浏览器都在辅助区），不做堆叠 |
 | UWP / 提权窗口 | 不支持：`ahk_exe` 认不到 UWP；提权窗口搬不动，返回失败 |
 

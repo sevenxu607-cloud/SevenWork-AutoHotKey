@@ -29,6 +29,8 @@ class ZoneService {
 
     ; hwnd → {role, zone, fill}；只记工作窗口，不记面板 / 提示词库这类浮层。
     static _registered := Map()
+    ; hwnd → 当前看管链的 SetTimer 闭包（停表必须把同一个函数对象交回去）。
+    static _watch := Map()
 
     ; ─── 配置 ────────────────────────────────────────────────────────────
     static AuxW() => ConfigService.ReadInt(this.Section, "AuxW", 772)
@@ -137,6 +139,49 @@ class ZoneService {
     static Unregister(hwnd) {
         if this._registered.Has(hwnd)
             this._registered.Delete(hwnd)
+    }
+
+    ; ─── 持续看管（应用 / 文件唤出后）───────────────────────────────────
+    ; 有些程序会在露面后恢复自己记住的尺寸 / 最大化（Everything、Explorer、
+    ; Obsidian 都实测过）：只摆一次会被它们改回去。这里在 8 秒内每 500ms 复核一次，
+    ; 期间窗口被用户收起 / 最小化 / 关掉就自动停止。
+    ;
+    ; ⚠ 不是「永久钉住」：8 秒后停止，用户之后可以自由拖动 —— 布局只在唤出时生效。
+    static Watch(hwnd, zone, fill := true, rounds := 16, interval := 500) {
+        if !hwnd
+            return false
+        this.StopWatch(hwnd)
+        this._Schedule(hwnd, zone, fill, 1, rounds, interval)
+        return true
+    }
+
+    static StopWatch(hwnd) {
+        if !this._watch.Has(hwnd)
+            return
+        fn := this._watch[hwnd]
+        this._watch.Delete(hwnd)
+        try SetTimer(fn, 0)
+    }
+
+    static _Schedule(hwnd, zone, fill, round, rounds, interval) {
+        if (round > rounds) {
+            this._watch.Delete(hwnd)
+            return
+        }
+        fn := () => this._WatchTick(hwnd, zone, fill, round, rounds, interval)
+        this._watch[hwnd] := fn
+        SetTimer(fn, -interval)
+    }
+
+    static _WatchTick(hwnd, zone, fill, round, rounds, interval) {
+        if !DllCall("user32\IsWindow", "ptr", hwnd, "int")
+            || !DllCall("IsWindowVisible", "ptr", hwnd, "int")
+            || DllCall("IsIconic", "ptr", hwnd, "int") {
+            this._watch.Delete(hwnd)
+            return
+        }
+        this.Place(hwnd, zone, {fill: fill, allowHidden: false})
+        this._Schedule(hwnd, zone, fill, round + 1, rounds, interval)
     }
 
     ; 把注册表里仍然存在的窗口按各自区域重摆一次（Alt+Shift+V）。

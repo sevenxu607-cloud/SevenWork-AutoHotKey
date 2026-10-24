@@ -14,7 +14,7 @@
 ; ⚠ 不弹模态框：空槽位 / 启动失败 / 找不到窗口都用 ToolTip —— 模态框会挡住热键。
 
 class AppSlotFeature {
-    static LaunchTimeout := 8000
+    static LaunchTimeout := 15000
     static PollInterval := 25
 
     ; ToolTip 的清除定时器（照 FolderWindowFeature 的写法：闭包存在字段上才停得掉）。
@@ -72,7 +72,9 @@ class AppSlotFeature {
         this.Tip(exe . " 已启动，但没找到窗口")
     }
 
-    ; 按 exe 文件名找顶层窗口：优先可见且未最小化的，其次第一个（含隐藏）。
+    ; 按 exe 文件名找**主窗口**：可见、未最小化、有标题里面积最大的那个。
+    ; ⚠ 不能只取第一个：Everything 的搜索窗 / Obsidian 的弹窗 / Chromium 辅助窗
+    ;   都可能排在主窗口前面；填满它们等于没摆主窗口（用户看到的就是「没反应」）。
     static _FindWindow(exe) {
         detectOld := A_DetectHiddenWindows
         DetectHiddenWindows(true)
@@ -81,14 +83,26 @@ class AppSlotFeature {
             if !ids.Length
                 return 0
             first := 0
+            best := 0, bestArea := -1
             for h in ids {
                 if !first
                     first := h
-                if DllCall("IsWindowVisible", "ptr", h, "int")
-                    && !DllCall("IsIconic", "ptr", h, "int")
-                    return h
+                if !DllCall("IsWindowVisible", "ptr", h, "int")
+                    || DllCall("IsIconic", "ptr", h, "int")
+                    continue
+                if (WinGetTitle("ahk_id " . h) = "")
+                    continue
+                try
+                    WinGetPos(, , &w, &hh, "ahk_id " . h)
+                catch
+                    continue
+                area := w * hh
+                if (area > bestArea) {
+                    best := h
+                    bestArea := area
+                }
             }
-            return first
+            return best ? best : first
         } finally {
             DetectHiddenWindows(detectOld)
         }
@@ -102,10 +116,9 @@ class AppSlotFeature {
         try WinActivate("ahk_id " . hwnd)
 
         ; 工作区应用填满区域：保留上次尺寸会让 Everything / Obsidian 越区。
-        ; 有些程序会在露面后恢复自己的尺寸，所以 300 / 900ms 各复核一次。
+        ; 有些程序会在露面后恢复自己的尺寸，8 秒内每 500ms 复核一次。
         this._PlaceNow(hwnd, zone)
-        SetTimer(() => this._Reassert(hwnd, zone), -300)
-        SetTimer(() => this._Reassert(hwnd, zone), -900)
+        ZoneService.Watch(hwnd, zone, true)
 
         ; 登记到区域注册表：Alt+Shift+V 时按这一条把窗口摆回原区域。
         ZoneService.Register(hwnd, "app", zone, true)
@@ -115,16 +128,6 @@ class AppSlotFeature {
         res := ZoneService.Place(hwnd, zone, {fill: true, allowHidden: false})
         if !res.ok && res.reason != "not-placeable" && res.reason != "minimized" && res.reason != "no-zone"
             LogError("应用槽位落区失败：" . zone . " —— " . res.reason)
-    }
-
-    static _Reassert(hwnd, zone) {
-        if !WinExist("ahk_id " . hwnd)
-            return
-        if !DllCall("IsWindowVisible", "ptr", hwnd, "int")
-            return
-        if DllCall("IsIconic", "ptr", hwnd, "int")
-            return
-        ZoneService.Place(hwnd, zone, {fill: true, allowHidden: false})
     }
 
     static _IsVisible(hwnd) => !!DllCall("IsWindowVisible", "ptr", hwnd, "int")
