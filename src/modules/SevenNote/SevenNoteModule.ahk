@@ -38,11 +38,14 @@ class SevenNoteModule {
 
         ; ─── 注册到 State ───
         State.SetGui(g)
+        ; 登记到区域注册表：Alt+Shift+V「恢复布局」时按这一条把笔记摆回记录区。
+        ; fill=true：笔记窗口填满记录区（应用/文件窗口是锚定，不填满）。
+        ZoneService.Register(g.Hwnd, "note", "record", true)
 
         ; ─── 窗口事件 ───
         ; ⚠ 标题栏的 × 必须与 Alt+Z 走同一条路（WindowFeature.Hide）：
-        ;   从前是裸的 g.Hide() —— 绕过 `Window.BeforeHide`（保存）与位置记忆，
-        ;   用户点一下 × 就等于「这次编辑既不存盘、下次也从默认落点重开」。
+        ;   从前是裸的 g.Hide() —— 绕过 `Window.BeforeHide`（保存）与入场动画复位，
+        ;   用户点一下 × 就等于「这次编辑既不存盘、入场动画也不复位」。
         g.OnEvent("Close", (*) => (WindowFeature.Hide(), true))
         g.OnEvent("Size", (guiObj, mm, w, h) => SevenNoteModule.OnSize(guiObj, mm, w, h))
 

@@ -120,9 +120,10 @@ class ZoneService {
         for hwnd, info in this._registered {
             ; 用 IsWindow 而不是 WinExist：WinExist 默认忽略隐藏窗口，
             ; 而笔记收起后 hwnd 仍在、Alt+Shift+V 应该还能把它摆回记录区。
-            if !DllCall("user32\IsWindow", "ptr", hwnd, "int")
+            if !DllCall("user32\IsWindow", "ptr", hwnd, "int") {
                 skipped += 1
                 continue
+            }
             res := this.Place(hwnd, info.zone, {fill: info.fill, allowHidden: true})
             if res.ok
                 applied += 1

@@ -70,7 +70,8 @@ Persistent()
 ;  COORDINATION 跨模块协调 —— 读业务状态、发事件、算几何后交给能力层
 ; ═══════════════════════════════════════════════════════════════════════════
 
-#Include WorkBench\Coordinator\PeerCoordinator.ahk
+; PeerCoordinator 已删除（v2.18）：笔记不再按伙伴窗口让位 / 堆叠，改为固定的
+; 三区域（ZoneService）。以后若出现新的跨模块布局编排，再在这里恢复协调器。
 #Include WorkBench\WorkBench.ahk
 
 ; ═══════════════════════════════════════════════════════════════════════════
