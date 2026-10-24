@@ -45,7 +45,8 @@
   **`State` 瘦身**（17 个零调用方法 + `_edHwnd` 等 7 个死字段，91 → 48 行，Kernel 解冻一次）。
   注释与资料：组合根头注释 50 → 12 行（历史叙述交给 EXPERIENCE），
   `docs/LAUNCHER-GUIDE.md` 344 → 146 行（只留机制 / 接入步骤 / 仍生效的数字）；
-  另删图主题遗留的 `tools/rebake-backdrop.ps1`（11.7 KB，零引用）。
+  另删图主题遗留的两个工具脚本：`tools/rebake-backdrop.ps1`（11.7 KB）与
+  `tools/pick-theme-colors.ps1`（5.3 KB）—— 都为零引用，随图主题一起退场。
 - **实验前端移出生产构建**：`GlassLab.vue` 改异步加载、`lab.css` 随组件走。
   （`npm run build`：`index.css` 49.36 → 40.63 kB，另出 `GlassLab.js/css` 各 8.7 kB）
 - **规则修正：对话档案改为每次会话必写**（原触发条件「用户要求 / 有方向性内容」无判据，
