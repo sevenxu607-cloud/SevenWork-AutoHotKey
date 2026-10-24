@@ -10,12 +10,14 @@
 ;   需要窗口的行为仍靠真机流程（按 Alt+Z / Alt+S 手验）。
 
 #Include ..\src\WorkBench\Capabilities\Placement\RectMath.ahk
+#Include ..\src\WorkBench\Capabilities\Placement\ZoneMath.ahk
 #Include ..\src\WorkBench\Capabilities\Web\JsText.ahk
 #Include ..\src\WorkBench\Capabilities\Document\DocxHeadingFix.ahk
 #Include ..\src\WorkBench\Capabilities\Document\DocxNumberFix.ahk
 
 #Include TestLib.ahk
 #Include Cases\RectMath.Tests.ahk
+#Include Cases\ZoneMath.Tests.ahk
 #Include Cases\JsText.Tests.ahk
 #Include Cases\Docx.Tests.ahk
 
@@ -30,6 +32,7 @@ T_Init(logPath)
 ; 顶层 try：任何用例里的未捕获异常都要落到日志里，而不是让进程默默退出
 try {
     RectMath_Tests()
+    ZoneMath_Tests()
     JsText_Tests()
     Docx_Tests()
 } catch as e {
