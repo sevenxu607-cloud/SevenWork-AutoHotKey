@@ -363,18 +363,11 @@ class WebWindow {
             if (this._placeMode = "zone") {
                 z := ZoneService.Rect(this._zone)
                 if IsObject(z) {
-                    ; 外框居中；比区域宽时向左溢出，再夹到工作区（不裁切窗口）
-                    px := z.x + (z.w - w) // 2
-                    py := z.y + (z.h - h) // 2
-                    if (px < rect.x + 10)
-                        px := rect.x + 10
-                    if (px + w > rect.x + rect.w - 10)
-                        px := rect.x + rect.w - 10 - w
-                    if (py < rect.y + 10)
-                        py := rect.y + 10
-                    if (py + h > rect.y + rect.h - 10)
-                        py := rect.y + rect.h - 10 - h
-                    WinMove(px, py, , , "ahk_id " . this._hwnd)
+                    ; 填满区域（与终端 / 浏览器同宽同高）：浮层也走「严丝合缝」。
+                    ; 可见矩形 → 物理外框，交给 WinMove；WebView2 在 OnSize 后自己 Fill。
+                    frame := WindowProbe.InvisibleFrame(this._hwnd)
+                    phys := RectMath.Physical({x: z.x, y: z.y, w: z.w, h: z.h, frame: frame})
+                    WinMove(phys.x, phys.y, phys.w, phys.h, "ahk_id " . this._hwnd)
                     return
                 }
                 ; 区域不可用（小屏 no-fit）→ 退回 center，别停在 AHK 默认点

@@ -43,11 +43,10 @@ static _ShowAndFocus(hwnd) {
 }
 ```
 
-浮层（提示词库 / 日期检索）不要 `Place` 锚定，用 `ZoneService.Center(hwnd, "aux")`：
-它保留窗口自身尺寸；比辅助区宽时向左溢出，再夹到工作区右缘。
-
-- WebView2 窗口：`WebWindow({place: "zone", zone: "aux"})`，由 `WebWindow._Place()` 居中。
-- 原生 `Gui`：`Show("… Hide")` → `ZoneService.Center(hwnd, "aux")` → `Show()`。
+浮层（提示词库 / 日期检索）也**填满辅助区**：提示词库用 `WebWindow({place:"zone", zone:"aux"})`；
+原生 `Gui` 先按区域逻辑尺寸（`区域物理宽高 × 96 ÷ A_ScreenDPI`）排好控件，再
+`Show("… Hide")` → `ZoneService.Place(hwnd, "aux", {fill:true})` → `Show()`。
+不要「居中后夹到工作区」——浮层会比区域宽、压到工作区。
 
 ## 认窗方式
 

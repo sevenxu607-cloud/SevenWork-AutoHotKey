@@ -18,25 +18,32 @@ class DateJumpFeature {
             return
         }
 
-        dlg := Gui("+Resize +AlwaysOnTop", winTitle)
+        dlg := Gui("+AlwaysOnTop", winTitle)
         dlg.SetFont("s11", "Microsoft YaHei")
         ; 配色跟着平台主题走（对话框是短命的：打开时取一次当期色板即可，
         ; 开着的时候按 Alt+T 不追 —— 下次打开就是新色）
         p := ThemeService.Palette()
         dlg.BackColor := p.win
 
+        ; 填满辅助区：窗口与控件都按区域的**逻辑**尺寸布局。
+        ; 区域是物理像素；Gui 控件坐标收逻辑单位，必须按 A_ScreenDPI 换算。
+        z := ZoneService.Rect("aux")
+        lw := IsObject(z) ? z.w * 96 // A_ScreenDPI : 560
+        lh := IsObject(z) ? z.h * 96 // A_ScreenDPI : 485
+        lvH := Max(lh - 134, 180)
+
         dlg.AddText("x14 y16 w60", "搜索：")
-        searchEdit := dlg.AddEdit("x72 y12 w480 h26")
+        searchEdit := dlg.AddEdit("x72 y12 w" . (lw - 86) . " h26")
         searchEdit.SetFont("s11", "Microsoft YaHei")
         ; Edit 不吃 BackColor，走 WM_CTLCOLOREDIT 登记（见 UiPaint.EditColors）
         UiPaint.EditColors(searchEdit.Hwnd, p.codeBg, p.text)
 
-        dlg.AddText("x14 y46 w560 c" . p.dim
+        dlg.AddText("x14 y46 w" . (lw - 28) . " c" . p.dim
             , "支持模糊搜索：日期（2026-09）或标签（机器学习），空格分隔多条件")
 
-        lv := dlg.AddListView("x14 y74 w538 h360", ["日期", "标签"])
+        lv := dlg.AddListView("x14 y74 w" . (lw - 28) . " h" . lvH, ["日期", "标签"])
         lv.ModifyCol(1, 130)
-        lv.ModifyCol(2, 400)
+        lv.ModifyCol(2, Max(lw - 28 - 130, 120))
         lv.SetFont("s10", "Microsoft YaHei")
         UiPaint.ListView(lv.Hwnd, p.codeBg, p.text)
 
@@ -87,7 +94,7 @@ class DateJumpFeature {
 
         lv.OnEvent("DoubleClick", JumpToSelected)
 
-        btnClose := dlg.AddButton("x472 y444 w80", "关闭")
+        btnClose := dlg.AddButton("x" . (lw - 94) . " y" . (lh - 50) . " w80", "关闭")
         btnClose.OnEvent("Click", (*) => dlg.Destroy())
 
         HotIfWinActive(winTitle)
@@ -105,11 +112,11 @@ class DateJumpFeature {
         ))
 
         ApplyFilter("")
-        ; 隐藏态定位到辅助区：先 Show("Hide") 让控件布局定型，再 Center，最后露面。
-        ; （与 WebWindow 同一套做法；Center 内部走 WinMove，收物理像素）
-        dlg.Show("w560 h485 Hide")
+        ; 填满辅助区：隐藏态定位，最后露面。
+        ; Place(fill:true) 按区域可见尺寸转外框；控件已按同样的逻辑尺寸排好。
+        dlg.Show("w" . lw . " h" . lh . " Hide")
         Sleep 30
-        ZoneService.Center(dlg.Hwnd, "aux", true)
+        ZoneService.Place(dlg.Hwnd, "aux", {fill: true, allowHidden: true})
         dlg.Show()
         searchEdit.Focus()
     }

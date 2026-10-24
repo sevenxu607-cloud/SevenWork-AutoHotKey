@@ -90,42 +90,6 @@ class ZoneService {
         return res
     }
 
-    ; ─── 居中（浮层用）─────────────────────────────────────────────────
-    ; 把窗口放在区域中心：提示词库 / 日期检索这类「辅助窗口」用。
-    ; 保留窗口自身尺寸、不缩放；比区域宽时向左溢出，再夹到工作区内。
-    ; allowHidden 缺省 true：调用方通常在 Show("Hide") 之后定位。
-    ;
-    ; ⚠ 这里直接用**外框**居中（RectOf 的结果），不做可见→外框转换：
-    ;   否则会二次加一遍不可见边框。与区域中心的偏差只有几个像素，可忽略。
-    static Center(hwnd, zone, allowHidden := true) {
-        if !hwnd
-            return {ok: false, reason: "bad-hwnd"}
-        z := this.Rect(zone)
-        if !IsObject(z)
-            return {ok: false, reason: "no-zone"}
-        cur := WindowProbe.RectOf(hwnd, true)
-        if !IsObject(cur)
-            return {ok: false, reason: "no-window"}
-
-        area := WindowProbe.PrimaryWorkArea()
-        x := z.x + (z.w - cur.w) // 2
-        y := z.y + (z.h - cur.h) // 2
-        if (x < area.x + 10)
-            x := area.x + 10
-        if (x + cur.w > area.x + area.w - 10)
-            x := area.x + area.w - 10 - cur.w
-        if (y < area.y + 10)
-            y := area.y + 10
-        if (y + cur.h > area.y + area.h - 10)
-            y := area.y + area.h - 10 - cur.h
-
-        res := PlacementExecutor.Move(hwnd
-            , {x: x, y: y, w: cur.w, h: cur.h}, allowHidden)
-        if res.ok
-            return {ok: true, rect: {x: x, y: y, w: cur.w, h: cur.h}}
-        return res
-    }
-
     ; ─── 注册表：谁在哪个区 ──────────────────────────────────────────────
     ; role 只用于日志 / 将来辨认（"note" / "app:1" / "file:2"），不参与几何。
     static Register(hwnd, role, zone, fill := false) {

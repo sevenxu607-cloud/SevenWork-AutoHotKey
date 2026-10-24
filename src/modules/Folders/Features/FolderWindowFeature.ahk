@@ -103,14 +103,33 @@ class FolderWindowFeature {
     }
 
     ; 按槽位配置把资源管理器窗口摆到区域（锚定：保留窗口自己的尺寸）。
-    ; ⚠ Explorer 可能刚露面、还没完全可摆；失败不惊动用户 —— 下次呼出会再摆一次。
+    ; ⚠ Explorer 会在窗口露面后套用自己的位置/尺寸，第一次 WinMove 可能被它盖回去；
+    ;   所以 300ms / 900ms 各复核一次。失败不惊动用户 —— 下次呼出会再摆。
     static _PlaceBySlot(slot, hwnd) {
         zone := FolderSlotService.GetZone(slot)
+        this._PlaceNow(hwnd, zone)
+        ; 一次性复核：箭头函数每次新建，不能停表也无妨（触发后即完成）。
+        SetTimer(() => this._Reassert(hwnd, zone), -300)
+        SetTimer(() => this._Reassert(hwnd, zone), -900)
+        ; 即使这次没摆成也登记：恢复布局时会再试一次。
+        ZoneService.Register(hwnd, "file", zone, false)
+    }
+
+    static _PlaceNow(hwnd, zone) {
         res := ZoneService.Place(hwnd, zone, {fill: false, allowHidden: false})
         if !res.ok && res.reason != "not-placeable" && res.reason != "minimized" && res.reason != "no-zone"
             LogError("文件夹窗口落区失败：" . zone . " —— " . res.reason)
-        ; 即使这次没摆成也登记：恢复布局时会再试一次。
-        ZoneService.Register(hwnd, "file", zone, false)
+    }
+
+    ; 异步复核前先过闸：窗口可能已被用户关掉 / 藏起来 / 最小化。
+    static _Reassert(hwnd, zone) {
+        if !WinExist("ahk_id " . hwnd)
+            return
+        if !DllCall("IsWindowVisible", "ptr", hwnd, "int")
+            return
+        if DllCall("IsIconic", "ptr", hwnd, "int")
+            return
+        ZoneService.Place(hwnd, zone, {fill: false, allowHidden: false})
     }
 
     static _IsVisible(hwnd) => !!DllCall("IsWindowVisible", "ptr", hwnd, "int")

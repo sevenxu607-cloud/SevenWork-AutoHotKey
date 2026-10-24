@@ -27,7 +27,8 @@
 
 模块只调 `ZoneService`（向下依赖），**不要调 `VisionModule`** —— 跨模块零调用。
 新窗口接入 = 启动 / 认窗后 `ZoneService.Place(hwnd, zone)` + `Register`；
-浮层用 `Center`（保留尺寸、居中、夹到工作区）。旧的三个 `Launcher.*` 事件已删除。
+浮层也填满区域（`WebWindow place:"zone"` 或原生控件按区域逻辑尺寸排好后 `Place(fill:true)`）。
+旧的三个 `Launcher.*` 事件已删除。
 
 ## 组合根与启动顺序
 
@@ -92,8 +93,7 @@ static _Window() {
 - **`dataDir` 逐窗不同**：同一 user data folder 建不出第二个 `CoreWebView2Environment`，
   失败藏在 `await()` 里、只表现为「窗口一片纯底色」；
 - **`view`** 落到 `web/src/App.vue` 的 `?view=` 分发；加一个窗口 = 加一个 `v-else-if` + 一个组件；
-- **`place`**：`center`（缺省）/ `topright` / `zone`（配 `zone: "aux"` 落辅助区中心）；
-  浮层比区域宽时不缩放，夹到工作区内 —— 缩放会裁掉控件；
+- **`place`**：`center`（缺省）/ `topright` / `zone`（配 `zone: "aux"` 填满辅助区）。
 - **`handlers` 传函数**（不是方法表）；**Esc 回调要写变参** `(*) => …`；
 - **字段名不能与方法同名、也不能声明在类体里**（两类都是 `Property is read-only`）。
 

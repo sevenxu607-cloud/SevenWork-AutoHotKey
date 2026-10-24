@@ -47,6 +47,9 @@ Persistent()
 ; ExplorerProbe：按**真实路径**找资源管理器窗口（读 Shell.Application.Windows）。
 ; 不用窗口标题 —— 标题是文件夹名，重名 / 本地化都靠不住。Folders 模块用它做显隐定位。
 #Include WorkBench\Capabilities\Shell\ExplorerProbe.ahk
+; CommandLine：从命令行取 exe 文件名（应用槽位认窗用）。
+; 纯字符串处理，不读 Config、不查窗口 —— 与 ExplorerProbe 同一条规矩。
+#Include WorkBench\Capabilities\Shell\CommandLine.ahk
 ; PandocRunner：用 pandoc 把一个文件转成另一个格式（单文件、通用）。
 ; pandoc 路径由调用方传入 —— 它不读 Config，与 ExplorerProbe 同一条规矩。
 ; ⚠ 笔记模块曾有一份专用的 PandocService（RTF → Markdown）。v2.9 起笔记保存不再经过
