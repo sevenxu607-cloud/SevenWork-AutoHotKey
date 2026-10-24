@@ -35,6 +35,9 @@ Persistent()
 ; ═══════════════════════════════════════════════════════════════════════════
 
 #Include WorkBench\Capabilities\Placement\RectMath.ahk
+; ZoneMath：三区域纯几何（记录 / 辅助 / 工作）。只算数字，不碰窗口；
+; 由平台服务 ZoneService 调用，模块不直接用它。
+#Include WorkBench\Capabilities\Placement\ZoneMath.ahk
 #Include WorkBench\Capabilities\Placement\WindowProbe.ahk
 #Include WorkBench\Capabilities\Placement\PlacementExecutor.ahk
 ; UiPaint：Win32 染色原语（标题栏 / 滚动条主题 / ListView 底色）。
@@ -75,6 +78,9 @@ Persistent()
 ; ═══════════════════════════════════════════════════════════════════════════
 
 #Include WorkBench\Services\ThemeService.ahk
+; ZoneService：三区域（记录 / 辅助 / 工作）的尺寸与摆放。区域住在平台层，
+; 因为笔记 / 应用 / 文件都要用，而跨模块零调用 —— Vision 模块只是用户入口。
+#Include WorkBench\Services\ZoneService.ahk
 
 ; 字号：仍属笔记模块（只影响 RichEdit，而编辑区已交给 WebView2 —— 见 FontService 头注释）
 #Include modules\SevenNote\Services\FontService.ahk
