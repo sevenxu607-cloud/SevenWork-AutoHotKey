@@ -10,6 +10,8 @@
 #   3) *.ahk = CRLF, no BOM
 #   4) README badge version == Config.Version
 #   5) line counts (informational)
+#   6) fenced code blocks balanced
+#   7) AGENTS.md exists and stays a map (<= 60 lines)
 #
 # Exit code: 0 = all pass, 1 = at least one failure
 
@@ -157,6 +159,24 @@ foreach ($f in $mdFiles) {
     }
 }
 if ($badFence -eq 0) { Write-Host ("  PASS  {0} file(s)" -f $mdFiles.Count) } else { $script:failCount += $badFence }
+
+# ---------- 7) AGENTS.md budget ----------
+# AGENTS.md is the map, not a manual: keep it short and make sure every link resolves.
+Write-Host ''
+Write-Host '=== 7) AGENTS.md (exists, <= 60 lines) ==='
+$agentsPath = Join-Path $root 'AGENTS.md'
+if (-not (Test-Path -LiteralPath $agentsPath)) {
+    Write-Host '  FAIL  AGENTS.md is missing (agents need one entry point)'
+    $script:failCount++
+} else {
+    $agentLines = [System.IO.File]::ReadAllLines($agentsPath, [System.Text.Encoding]::UTF8).Length
+    if ($agentLines -gt 60) {
+        Write-Host ("  FAIL  AGENTS.md has {0} lines (budget 60) - move detail into docs/ or .clinerules/" -f $agentLines)
+        $script:failCount++
+    } else {
+        Write-Host ("  PASS  {0} line(s) (budget 60)" -f $agentLines)
+    }
+}
 
 # ---------- summary ----------
 Write-Host ''
