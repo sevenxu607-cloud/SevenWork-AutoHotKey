@@ -86,8 +86,8 @@ class FoldersModule {
     ; ═══ 面板设置声明 ═══
     ; 平台（WebPanelUI）只认 {label, kind, value} 三个字段，**不认识「槽位」这个词**；
     ; 保存时把 values 原样交回这里的 apply 函数，由本模块自己写配置。
-    ; 这样平台零业务耦合，将来别的模块加设置照抄这份形状即可。
-    ; kind 目前支持 "folder"（输入框 + 浏览按钮）；后续可扩 "text" / "number" / "toggle"。
+    ; 每个槽位两个字段：路径（folder）+ 打开位置（select）。顺序必须与
+    ; FolderSlotService.SaveAll 的解析顺序一致 —— 路径、区域、路径、区域……
     ; ⚠ 平台调用时**必须先把 apply 取到局部变量再调**：AHK v2 的 obj.prop(args)
     ;   走方法查找，属性里存的 Func 不会被调用（见 .clinerules/03）。
     static GetSettingsSpec() {
@@ -103,11 +103,20 @@ class FoldersModule {
                 ; 只显示、不写入 —— 不填直接保存，存进去的仍是空串（= 该槽位未启用）。
                 placeholder: "留空 = 不启用，也可直接粘贴路径"
             })
+            fields.Push({
+                key:   "Slot" . slot . "Zone",
+                label: "   打开到 →",
+                kind:  "select",
+                value: FolderSlotService.GetZone(slot),
+                options: ZoneService.Options()
+            })
         }
         return {
             title:  "文件槽位",
-            hint:   "热键固定为 Alt+1/2/3，指向哪个文件夹随时换；留空 = 该槽位未启用。"
-                . "`n浏览窗口的地址栏能直接粘贴路径（如 D:\Work），上次浏览的位置会被记住。",
+            hint:   "热键固定为 Alt+1/2/3，指向哪个文件夹、开到哪个区域都可以随时换；"
+                . "留空 = 该槽位未启用。"
+                . "`n浏览窗口的地址栏能直接粘贴路径（如 D:\Work），上次浏览的位置会被记住。"
+                . "`n区域：记录区 / 辅助区 / 工作区（位置由「视界」统一管理）。",
             fields: fields,
             apply:  (values) => FolderSlotService.SaveAll(values)
         }

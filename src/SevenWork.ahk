@@ -99,7 +99,8 @@ Persistent()
 ; 粘贴图片落盘（WebView2 → base64 → _assets/<date>/）—— 必须在 NoteStoreService 之后
 #Include modules\SevenNote\Services\NoteImageService.ahk
 
-#Include modules\Launcher\Services\PeerLayoutService.ahk
+; （PeerLayoutService 已删除：终端与浏览器都改由 ZoneService 落到辅助区，
+;   不再需要「同一处右下角」的落点公式。）
 
 ; ═══════════════════════════════════════════════════════════════════════════
 ;  FEATURE 功能层 —— 用户要做什么

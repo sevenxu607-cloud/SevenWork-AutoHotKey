@@ -5,9 +5,8 @@
 ; ═══════════════════════════════════════════════════════════════════════════
 
 ; ─── Alt+X 呼出 DeepSeek 网页端 ───
-; 「伴生窗口适配」契约（Launcher.Preparing / Launcher.Opened / Launcher.Failed）的第二个使用者 ——
-; 与 PowerShellFeature 同一套玩法，只把「终端」换成浏览器窗口。
-; 三条广播的语义、时序、失败兜底完全一致；接入步骤见 README「开发指南」。
+; 与 PowerShellFeature 同一套玩法：启动 / 认窗 / 唤醒，落辅助区（ZoneService）。
+; 不再广播 Launcher.* 事件，也不再管笔记窗口的位置。
 ;
 ; 有三处与终端不同，值得记下：
 ;   ① **窗口怎么认**：终端能靠标题（"SevenWork PowerShell"）认，浏览器不能 ——
@@ -111,7 +110,8 @@ class DeepSeekFeature {
         DetectHiddenWindows(true)
         fallback := 0        ; 第一扇「不可见」的候选（认回被藏起来的窗口用）
         visibleAny := 0      ; 第一扇「可见」的候选（尺寸对不上时的退路）
-        tw := PeerLayoutService.TargetW(), th := PeerLayoutService.TargetH()
+        t := this._TargetSize()
+        tw := t.w, th := t.h
         try {
             for h in WinGetList("ahk_exe " . this._ExeName()) {
                 if (WinGetPID("ahk_id " . h) != pid)
@@ -270,9 +270,6 @@ class DeepSeekFeature {
             return
         }
 
-        ; 确定要启动了，才让笔记窗口退场 —— 上面那条早退分支不能白收一次。
-        EventBus.Emit("Launcher.Preparing")
-
         ; ⚠ 升级路径上的一次性清理：老实例（--app 时代的进程）还活着就先退掉它，
         ;   否则本次 --new-window 会被 Chromium 的单实例复用吃掉，照旧开出应用窗口。
         this._RetireLegacyInstance()
@@ -290,8 +287,9 @@ class DeepSeekFeature {
             ;   2px。请求值先扣掉它，外框才与终端严格等宽（高度实测不差，不用减）。
             ;   真机上若换版本后仍差，以 WinGetPos 量到的**外框**为准调这个常量 ——
             ;   别去猜那圈边框算几像素（随系统版本与缩放而变）。
-            w := (PeerLayoutService.TargetW() - 2) * 96 // A_ScreenDPI
-            h := PeerLayoutService.TargetH() * 96 // A_ScreenDPI
+            t := this._TargetSize()
+            w := (t.w - 2) * 96 // A_ScreenDPI
+            h := t.h * 96 // A_ScreenDPI
             ; --new-window：开一扇**普通浏览器窗口**（有标签栏与完整工具栏），窗口内可直接浏览网页。
             ;       早先走 --app=<url> 开「应用窗口」求桌面应用观感，实测不划算 —— Edge 155 起
             ;       app 窗口照样自带地址栏（UIA 查到 view_1017「地址和搜索栏」），却没有标签栏：
@@ -309,7 +307,6 @@ class DeepSeekFeature {
             Run(cmd)
         } catch as err {
             MsgBox("启动浏览器失败：`n" . err.Message, Config.AppName, "Icon!")
-            EventBus.Emit("Launcher.Failed")
             return
         }
 
@@ -346,7 +343,6 @@ class DeepSeekFeature {
         }
 
         MsgBox("浏览器已启动，但未能找到它的窗口。", Config.AppName, "Icon!")
-        EventBus.Emit("Launcher.Failed")
     }
 
     ; 当前同族进程的 PID 集合（含只有隐藏窗口的宿主进程）
@@ -379,10 +375,6 @@ class DeepSeekFeature {
     }
 
     static _ShowAndFocus(hwnd) {
-        ; 让笔记窗口先退场 —— 它接下来要换位置换尺寸，这一整段不该被看见。
-        ; 理由详见 WindowFeature._CollapseForLauncher。重复发是无害的：已收起时那次会跳过。
-        ; ⚠ 这条广播管的是笔记窗口，不是浏览器：浏览器的露面时机由它自己的宿主掌握。
-        EventBus.Emit("Launcher.Preparing")
         WinShow("ahk_id " . hwnd)
         ; ⚠ WinRestore 只在「已最小化」时才有意义。Chromium 窗口被 WinHide 藏起来后
         ;   有可能把自己标成最小化，也可能只是普通隐藏 —— 后者照样调 WinRestore 会抛
@@ -393,36 +385,21 @@ class DeepSeekFeature {
         try {
             WinSetAlwaysOnTop("On", "ahk_id " . hwnd)
         }
-        ; 浏览器自己不记位置，每次都在 Chromium 的默认点，所以摆到「和终端同一处」。
         this._PlaceLikeTerminal(hwnd)
-        ; 把实际落点广播出去，由笔记窗口（WindowFeature）据此避让 —— 谁被动谁适配。
-        this._BroadcastRect(hwnd)
-
-        ; 广播是同步的（EventBus 直接循环调用 handler），所以上一行返回时笔记窗口已经
-        ; 露面了 —— 而 Show() 末尾会激活窗口自身，把前台从刚呼出的浏览器手里夺走。
-        ; 按 Alt+X 是要用 DeepSeek，这里还回去。
-        WinActivate("ahk_id " . hwnd)
     }
 
-    ; 摆到「和 PowerShell 终端同一处」：右侧贴工作区右缘（离缘 Config.PlaceRight）、
-    ; 底边贴工作区底。「可摆性闸」与落点算式都在 PeerLayoutService 里。
-    ; ⚠ 全程 WinMove（物理像素），别混用 Gui.Move（它收逻辑单位、还会再乘一次 DPI）。
+    ; 落辅助区并复核尺寸：Edge 会在窗口露面之后重新套用它自己的 --window-size。
     static _PlaceLikeTerminal(hwnd) {
         this._PlaceTarget(hwnd)
         this._WatchSize(hwnd, 0)
     }
 
-    ; 按目标尺寸摆到「和终端同一处」（右侧贴工作区右缘、底边贴工作区底）。
-    ; 终端那边只挪位置、尺寸归 Windows Terminal 的 profile，这边位置尺寸一起定。
+    ; 落辅助区：保留浏览器自身尺寸（--window-size 已按区域给过），只对齐左上角。
+    ; 失败里「不可摆 / 已最小化 / 区域不可用」都是正常路径，不刷日志。
     static _PlaceTarget(hwnd) {
-        ; ⚠ 隐藏 / 最小化的窗口一律不摆 —— 本函数有两个调用来源，其中 _CheckSize 是
-        ;   **异步定时器**（350 / 950 / 1550 / 2150ms），等它跑起来时用户很可能已经
-        ;   连按一次 Alt+X 把窗口藏了。闸的实现与实测账见 PeerLayoutService.IsPlaceable。
-        if !PeerLayoutService.IsPlaceable(hwnd)
-            return
-        w := PeerLayoutService.TargetW(), h := PeerLayoutService.TargetH()
-        rect := PeerLayoutService.CornerRect(w, h)
-        WinMove(rect.x, rect.y, w, h, "ahk_id " . hwnd)
+        res := ZoneService.Place(hwnd, "aux", {fill: false, allowHidden: false})
+        if !res.ok && res.reason != "not-placeable" && res.reason != "minimized" && res.reason != "no-zone"
+            LogError("浏览器落辅助区失败：" . res.reason)
     }
 
     ; ─── 尺寸复核：Edge 会在窗口露面之后重新套用它自己的 --window-size ───
@@ -460,21 +437,18 @@ class DeepSeekFeature {
         } finally {
             DetectHiddenWindows(detectOld)
         }
-        if (aw != PeerLayoutService.TargetW() || ah != PeerLayoutService.TargetH())
+        t := this._TargetSize()
+        if (aw != t.w || ah != t.h)
             this._PlaceTarget(hwnd)
         this._WatchSize(hwnd, round + 1)
     }
 
-    ; 广播伙伴窗口此刻的实际位置与尺寸，供笔记窗口让位（Launcher.Opened 契约）。
-    ; 读矩形的细节见 PeerLayoutService.RectOf。
-    static _BroadcastRect(hwnd) {
-        rect := PeerLayoutService.RectOf(hwnd)
-        if !IsObject(rect)
-            return
-        data := {kind: "deepseek", hwnd: hwnd, x: rect.x, y: rect.y, w: rect.w, h: rect.h}
-        ; Phase 5b：Launcher.Opened 同时是伙伴落位事件，WindowFeature 据此适配；
-        ; 旧的桥接事件已移除。
-        EventBus.Emit("Launcher.Opened", data)
+    ; 辅助区的当前尺寸（可见边界）。区域算不出来时退回 772x1020（旧默认值）。
+    static _TargetSize() {
+        r := ZoneService.Rect("aux")
+        if IsObject(r)
+            return {w: r.w, h: r.h}
+        return {w: 772, h: 1020}
     }
 
     ; 浏览器：优先 _config.ini 指定；否则按 Edge → Chrome 顺序探测（Windows 自带 Edge，

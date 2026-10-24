@@ -8,8 +8,14 @@
 ;
 ;   [Folders]
 ;   Slot1=D:\Work\Current
+;   Slot1Zone=工作区
 ;   Slot2=D:\00-SevenFiles\Documents
+;   Slot2Zone=辅助区
 ;   Slot3=              ← 空 = 未配置，按下时提示去面板设置
+;   Slot3Zone=工作区
+;
+; ⚠ 区域只存中文标签（工作区 / 辅助区 / 记录区）；几何由平台 ZoneService 负责，
+;   本服务不认识 ZoneMath，也不做任何窗口操作。
 ;
 ; ⚠ 存进 _config.ini 而不是独立文件：与主题 / Vault 同一套持久化，备份只有一处。
 ; ⚠ 不放 Kernel/Config.ahk：槽位是 Folders 模块的业务配置，Kernel 只管通用路径
@@ -31,6 +37,14 @@ class FolderSlotService {
         return ConfigService.Read(this.Section, "Slot" . slot)
     }
 
+    ; 打开到哪个区域（中文标签）。未配置 = 工作区。
+    static GetZone(slot) {
+        z := ConfigService.Read(this.Section, "Slot" . slot . "Zone")
+        if (z = "")
+            return "工作区"
+        return z
+    }
+
     ; 读出来做「能不能直接开」的判断：空 / 目录不存在都算不可用。
     ; 返回 {ok:true, path} 或 {ok:false, reason:"empty"|"missing", path?}
     static GetUsable(slot) {
@@ -48,7 +62,17 @@ class FolderSlotService {
         return ConfigService.Write(this.Section, "Slot" . slot, this.Normalize(path))
     }
 
-    ; 面板保存时一次交回全部槽位（values 是数组，下标 1..Count）。
+    ; 区域存中文标签；空值归一成「工作区」（与 GetZone 的默认一致）。
+    static SetZone(slot, zone) {
+        z := Trim("" . zone)
+        if (z = "")
+            z := "工作区"
+        return ConfigService.Write(this.Section, "Slot" . slot . "Zone", z)
+    }
+
+    ; 面板保存时一次交回全部槽位。
+    ; values 的顺序 = GetSettingsSpec().fields 的声明顺序：
+    ;   槽位 1 路径、槽位 1 区域、槽位 2 路径、槽位 2 区域 …
     ; 逐条写、任何一条失败就整体返回 false —— 部分写入比不写更让人困惑
     ; （用户以为改了三项，实际只生效了一项）。
     static SaveAll(values) {
@@ -57,9 +81,13 @@ class FolderSlotService {
         ok := true
         loop this.Count {
             slot := A_Index
-            if (slot > values.Length)
+            pi := (slot - 1) * 2 + 1
+            zi := pi + 1
+            if (pi > values.Length)
                 break
-            if !this.Set(slot, values[slot])
+            if !this.Set(slot, values[pi])
+                ok := false
+            if (zi <= values.Length && !this.SetZone(slot, values[zi]))
                 ok := false
         }
         return ok

@@ -34,7 +34,7 @@ class FolderWindowFeature {
 
         hwnd := ExplorerProbe.FindFor(path)
         if !hwnd {
-            this._Launch(path)
+            this._Launch(slot, path)
             return
         }
 
@@ -47,11 +47,12 @@ class FolderWindowFeature {
         }
 
         this._ShowAndFocus(hwnd)
+        this._PlaceBySlot(slot, hwnd)
     }
 
     ; ═══ 打开 ═══
 
-    static _Launch(path) {
+    static _Launch(slot, path) {
         ; Run(目录) 走 ShellExecute → **尊重用户的「在同一窗口中打开每个文件夹」设置**。
         ; 不用 `explorer.exe /n` —— 那会无视用户偏好强行开新窗口，用久了满屏资源管理器。
         try Run(path)
@@ -68,6 +69,7 @@ class FolderWindowFeature {
             hwnd := ExplorerProbe.FindFor(path)
             if hwnd {
                 this._ShowAndFocus(hwnd)
+                this._PlaceBySlot(slot, hwnd)
                 return
             }
             Sleep(this.PollInterval)
@@ -98,6 +100,15 @@ class FolderWindowFeature {
         try WinHide("ahk_id " . hwnd)
         catch as e
             LogError("隐藏文件夹窗口失败：" . e.Message)
+    }
+
+    ; 按槽位配置把资源管理器窗口摆到区域（锚定：保留窗口自己的尺寸）。
+    ; ⚠ Explorer 可能刚露面、还没完全可摆；失败不惊动用户 —— 下次呼出会再摆一次。
+    static _PlaceBySlot(slot, hwnd) {
+        zone := FolderSlotService.GetZone(slot)
+        res := ZoneService.Place(hwnd, zone, {fill: false, allowHidden: false})
+        if !res.ok && res.reason != "not-placeable" && res.reason != "minimized" && res.reason != "no-zone"
+            LogError("文件夹窗口落区失败：" . zone . " —— " . res.reason)
     }
 
     static _IsVisible(hwnd) => !!DllCall("IsWindowVisible", "ptr", hwnd, "int")
