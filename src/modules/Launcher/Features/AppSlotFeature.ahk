@@ -101,11 +101,30 @@ class AppSlotFeature {
         try WinRestore("ahk_id " . hwnd)
         try WinActivate("ahk_id " . hwnd)
 
-        res := ZoneService.Place(hwnd, zone, {fill: false, allowHidden: false})
+        ; 工作区应用填满区域：保留上次尺寸会让 Everything / Obsidian 越区。
+        ; 有些程序会在露面后恢复自己的尺寸，所以 300 / 900ms 各复核一次。
+        this._PlaceNow(hwnd, zone)
+        SetTimer(() => this._Reassert(hwnd, zone), -300)
+        SetTimer(() => this._Reassert(hwnd, zone), -900)
+
+        ; 登记到区域注册表：Alt+Shift+V 时按这一条把窗口摆回原区域。
+        ZoneService.Register(hwnd, "app", zone, true)
+    }
+
+    static _PlaceNow(hwnd, zone) {
+        res := ZoneService.Place(hwnd, zone, {fill: true, allowHidden: false})
         if !res.ok && res.reason != "not-placeable" && res.reason != "minimized" && res.reason != "no-zone"
             LogError("应用槽位落区失败：" . zone . " —— " . res.reason)
-        ; 登记到区域注册表：Alt+Shift+V 时按这一条把窗口摆回原区域。
-        ZoneService.Register(hwnd, "app", zone, false)
+    }
+
+    static _Reassert(hwnd, zone) {
+        if !WinExist("ahk_id " . hwnd)
+            return
+        if !DllCall("IsWindowVisible", "ptr", hwnd, "int")
+            return
+        if DllCall("IsIconic", "ptr", hwnd, "int")
+            return
+        ZoneService.Place(hwnd, zone, {fill: true, allowHidden: false})
     }
 
     static _IsVisible(hwnd) => !!DllCall("IsWindowVisible", "ptr", hwnd, "int")

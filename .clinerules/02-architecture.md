@@ -27,8 +27,9 @@
 
 模块只调 `ZoneService`（向下依赖），**不要调 `VisionModule`** —— 跨模块零调用。
 新窗口接入 = 启动 / 认窗后 `ZoneService.Place(hwnd, zone)` + `Register`；
-浮层也填满区域（`WebWindow place:"zone"` 或原生控件按区域逻辑尺寸排好后 `Place(fill:true)`）。
-旧的三个 `Launcher.*` 事件已删除。
+浮层也填满区域（`WebWindow place:"zone"` 或原生控件按区域逻辑尺寸排好后 `Place(fill:true)`）；
+工作区应用 / 文件用 `fill:true` 并在 300 / 900 / 1600ms 复核；标签对话框用
+`CenterIn` 居中记录区。旧的三个 `Launcher.*` 事件已删除。
 
 ## 组合根与启动顺序
 

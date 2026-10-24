@@ -14,7 +14,8 @@ class TitleFeature {
         currentTag := (mdPath != "")
             ? NoteStoreService.TagFromFileName(mdPath) : ""
 
-        dlg := Gui("+AlwaysOnTop -MinimizeBox -MaximizeBox", "日期标签")
+        winTitle := "日期标签"
+        dlg := Gui("+AlwaysOnTop -MinimizeBox -MaximizeBox", winTitle)
         dlg.SetFont("s11", "Microsoft YaHei")
         ; 这一扇从前写死米黄 —— 深色主题下就是「白底 + 黑字」的孤岛
         p := ThemeService.Palette()
@@ -27,19 +28,33 @@ class TitleFeature {
         edit.SetFont("s11", "Microsoft YaHei")
         ; Edit 不吃 BackColor，走 WM_CTLCOLOREDIT 登记
         UiPaint.EditColors(edit.Hwnd, p.codeBg, p.text)
-        btnOk := dlg.AddButton("Default x14 y76 w100", "确定")
-        btnClear := dlg.AddButton("x122 y76 w100", "清除")
-        btnCancel := dlg.AddButton("x230 y76 w100", "取消")
+        ; 按钮改用 Text + SS_NOTIFY：原生 Button 的底色由系统画，深色窗口上是一块
+        ; 白底黑字，与主题不协调。Text 继承窗口底色，文字用主题色；0x200 让文字垂直居中。
+        btnOk := dlg.AddText("x14 y76 w100 h30 Center +0x300 Border c" . p.text, "确定")
+        btnClear := dlg.AddText("x122 y76 w100 h30 Center +0x300 Border c" . p.text, "清除")
+        btnCancel := dlg.AddText("x230 y76 w100 h30 Center +0x300 Border c" . p.text, "取消")
         dlg.AddText("x14 y112 w340 c" . p.dim
             , "示例：2026-09-19-机器学习`n标签会写进文件名，黑曜石里一眼可见")
 
+        ; Enter / NumpadEnter：Text 不是原生按钮，默认回车不会触发「确定」。
+        Cleanup() {
+            HotIfWinActive(winTitle)
+            for key in ["Enter", "NumpadEnter"]
+                try Hotkey(key, "Off")
+            HotIf()
+        }
+        CloseDlg(*) {
+            Cleanup()
+            try dlg.Destroy()
+        }
         OnSubmit(*) {
             newTag := NoteStoreService.SanitizeTag(edit.Value)
+            Cleanup()
             dlg.Destroy()
             TitleFeature._Apply(date, currentTag, newTag)
         }
-
         OnClear(*) {
+            Cleanup()
             dlg.Destroy()
             if (currentTag != "")
                 TitleFeature._Apply(date, currentTag, "")
@@ -47,12 +62,20 @@ class TitleFeature {
 
         btnOk.OnEvent("Click", OnSubmit)
         btnClear.OnEvent("Click", OnClear)
-        btnCancel.OnEvent("Click", (*) => dlg.Destroy())
-        dlg.OnEvent("Escape", (*) => dlg.Destroy())
-        dlg.OnEvent("Close", (*) => dlg.Destroy())
+        btnCancel.OnEvent("Click", CloseDlg)
+        dlg.OnEvent("Escape", CloseDlg)
+        dlg.OnEvent("Close", CloseDlg)
+
+        HotIfWinActive(winTitle)
+        Hotkey("Enter", OnSubmit, "On")
+        Hotkey("NumpadEnter", OnSubmit, "On")
+        HotIf()
 
         edit.Focus()
-        dlg.Show("w380 h150")
+        ; 位置：记录区中心（尺寸不变）。只移动默认呼出位置。
+        dlg.Show("w380 h150 Hide")
+        ZoneService.CenterIn(dlg.Hwnd, "record", true)
+        dlg.Show()
     }
 
     static _Apply(date, oldTag, newTag) {

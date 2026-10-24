@@ -90,6 +90,38 @@ class ZoneService {
         return res
     }
 
+    ; ─── 居中（小对话框用）─────────────────────────────────────────────
+    ; 把窗口放在区域中心、**不缩放**（标签对话框这类小窗）。比区域大时溢出，
+    ; 再夹到工作区。allowHidden 缺省 true：调用方通常在 Show("Hide") 之后定位。
+    static CenterIn(hwnd, zone, allowHidden := true) {
+        if !hwnd
+            return {ok: false, reason: "bad-hwnd"}
+        z := this.Rect(zone)
+        if !IsObject(z)
+            return {ok: false, reason: "no-zone"}
+        cur := WindowProbe.RectOf(hwnd, true)
+        if !IsObject(cur)
+            return {ok: false, reason: "no-window"}
+
+        area := WindowProbe.PrimaryWorkArea()
+        x := z.x + (z.w - cur.w) // 2
+        y := z.y + (z.h - cur.h) // 2
+        if (x < area.x + 10)
+            x := area.x + 10
+        if (x + cur.w > area.x + area.w - 10)
+            x := area.x + area.w - 10 - cur.w
+        if (y < area.y + 10)
+            y := area.y + 10
+        if (y + cur.h > area.y + area.h - 10)
+            y := area.y + area.h - 10 - cur.h
+
+        res := PlacementExecutor.Move(hwnd
+            , {x: x, y: y, w: cur.w, h: cur.h}, allowHidden)
+        if res.ok
+            return {ok: true, rect: {x: x, y: y, w: cur.w, h: cur.h}}
+        return res
+    }
+
     ; ─── 注册表：谁在哪个区 ──────────────────────────────────────────────
     ; role 只用于日志 / 将来辨认（"note" / "app:1" / "file:2"），不参与几何。
     static Register(hwnd, role, zone, fill := false) {

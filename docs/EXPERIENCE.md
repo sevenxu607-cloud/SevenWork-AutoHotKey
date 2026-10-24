@@ -92,6 +92,17 @@
   这条只做了代码补齐（2026-10-24），**未真机验过最大化窗口的落区**。
 - **笔记不再置顶**：固定落记录区后去掉 `+AlwaysOnTop`，实测 `WS_EX_TOPMOST=0`；
   否则它会盖住工作区里正在用的窗口。
+- **应用 / 文件必须填满 + 复核（已实测 2026-10-24）**：保留尺寸会被 Everything / Explorer
+  恢复，表现为越区或向上漂移。`fill:true` + 300 / 900 / 1600ms 复核后：
+  Everything 外框 `9,10,1759,1591`、文件夹 `1,10,1775,1599`，两次测量一致，
+  可见边界都等于工作区 `10,10,1757,1590`。
+  ⚠ 终端 / 浏览器例外：高度归 WT profile、宽度被 Edge 吸附，仍用锚定。
+- **原生 Button 在深色窗口上是白底**：标签对话框改用 `Text + SS_NOTIFY`（`+0x300`
+  含垂直居中），继承窗口底色；点击「取消」实测窗口关闭（`after=0`）。
+  Enter / NumpadEnter 另用 `HotIfWinActive + Hotkey`（Text 不是默认按钮）。
+  位置用 `ZoneService.CenterIn(hwnd, "record")`，窗口中心与记录区中心一致。
+- **按键模块要有反馈**：CapsLock 层 Toggle 现在闪 ToolTip（开启时说明 H/J/K/L = 方向键），
+  不再只是静默改配置；`CapsLock.Toggled` 事件保留给订阅者。
 
 ## 4. 材质与主题
 
@@ -269,5 +280,5 @@
 | 笔记模块的热键走 `global` | 字体 / 字号 / 切日期改的都是「当前这篇」，`global` 会在**任何程序里静默截键**：Excel 里按 `Alt+↑` 会先存盘再切到前一天，用户不知道笔记被切走了。v2.17 收窄成 `editor` 上下文，只有 `Alt+Z` 保持 `global`（窗口藏着也得能叫出来） |
 | 让窗口回到原生控件 + 染色 | 原生控件只能染色、没有材质；新窗口一律走 `WebWindow` |
 | 伙伴窗口适配（`Launcher.Preparing/Opened/Failed` + `PeerCoordinator` + `PeerLayoutService`） | 已由三区域取代（2026-10-24）：让位 / 堆叠 / 冻结那套要维护「谁动谁适配」，而笔记一旦固定落记录区就不再需要联动。新窗口只调 `ZoneService.Place` |
-| 所有窗口强制填满区域 | 笔记填记录区可以；终端高度归 Windows Terminal profile、浏览器会被 Edge 的 `--window-size` 吸附 —— 强制填满会反复打架。应用 / 文件一律锚定（保留自身尺寸），只对齐左上角 |
+| 所有窗口强制填满区域 | **例外已收窄（2026-10-24）**：终端高度归 Windows Terminal profile、浏览器会被 Edge 的 `--window-size` 吸附 —— 这两类保持锚定；**文件 / 应用槽位反过来必须填满 + 300/900/1600ms 复核**，否则它们会恢复上次尺寸、越区或向上漂移（Everything / Explorer 已实测稳定） |
 | 一键启动（暂缓，不是否掉） | 串行启动会占住热键线程（终端 15s、浏览器 15s）；先要解决异步模型，否则一按 Alt+V 十几秒没反应 |

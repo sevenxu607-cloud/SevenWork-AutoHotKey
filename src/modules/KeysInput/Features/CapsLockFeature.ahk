@@ -9,6 +9,7 @@
 class CapsLockFeature {
     static _enabled := false
     static _loading := false
+    static _tipTimer := ""
 
     static Enable() {
         if this._enabled
@@ -41,13 +42,15 @@ class CapsLockFeature {
     static Toggle() {
         if this._enabled {
             this.Disable()
-            EventBus.Emit("CapsLock.Toggled"
-                , {msg: "✗ 键盘映射已关闭", state: false})
+            msg := "✗ CapsLock 层已关闭"
         } else {
             this.Enable()
-            EventBus.Emit("CapsLock.Toggled"
-                , {msg: "✓ 键盘映射已开启", state: true})
+            msg := "✓ CapsLock 层已开启：H/J/K/L = 方向键"
         }
+        ; 热键按下去没有任何反馈时，用户会怀疑「是不是没生效」——
+        ; 这里只闪 ToolTip（低打扰），阶段状态仍写进 _config.ini。
+        this.Tip(msg)
+        EventBus.Emit("CapsLock.Toggled", {msg: msg, state: this._enabled})
     }
 
     static SaveToConfig() {
@@ -62,5 +65,26 @@ class CapsLockFeature {
         else
             this.Disable()
         this._loading := false
+    }
+
+    ; 轻量反馈：ToolTip 在鼠标旁闪一下（与 AppSlotFeature 同一套写法）。
+    static Tip(msg, ms := 1800) {
+        try ToolTip(msg)
+        this._StopTipTimer()
+        timerFn := () => this._ClearTip()
+        this._tipTimer := timerFn
+        SetTimer(timerFn, -ms)
+    }
+
+    static _StopTipTimer() {
+        timerFn := this._tipTimer
+        this._tipTimer := ""
+        if IsObject(timerFn)
+            try SetTimer(timerFn, 0)
+    }
+
+    static _ClearTip(*) {
+        this._tipTimer := ""
+        try ToolTip()
     }
 }

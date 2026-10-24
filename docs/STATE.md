@@ -40,6 +40,11 @@
 - **应用槽位 include 修复**：`CommandLine.ahk` 只进了 tests、没进组合根，按 `Alt+Shift+1`
   报「局部变量未赋值」；补 include 后 `ExeOf("D:\...\Everything.exe") = Everything.exe`。
 - **笔记取消置顶**：去掉 `+AlwaysOnTop`。（探针：`WS_EX_TOPMOST=0`）
+- **应用 / 文件填满工作区 + 复核**：Everything 外框 `9,10,1759,1591`、文件夹
+  `1,10,1775,1599`（可见均 `10,10,1757,1590`），两次测量一致；300 / 900 / 1600ms 复核。
+- **标签窗口**：位置居中记录区（中心与记录区中心一致，外框 `1863,151,592,281`）；
+  按钮改 `Text + SS_NOTIFY` 继承主题；点「取消」实测窗口关闭（`after=0`）。
+- **按键反馈**：CapsLock 层 Toggle 闪 ToolTip（开启说明 H/J/K/L = 方向键）。
 - **清理**：`RectMath.PlanStack/Overlaps/CornerRect`、`Config.StatInterval/DockGap/DockMargin`、
   `ZoneService` 零调用；测试 AHK 133 → 109 条（删掉的是旧伙伴适配用例）。
 - **回归**：AHK 109 + web 17 全绿；`check-docs` 退出码 0；真机启动 stderr 空、
@@ -64,7 +69,6 @@
 | **应用槽位认窗** | 按 exe 文件名；多实例只取第一个，UWP / `cmd /c start` / 提权窗口不支持 |
 | **主脚本 include 完整性** | 单测 include ≠ 生产 include：`CommandLine` 漏过一次；新增能力后要检查 `src\SevenWork.ahk` |
 | **提示词白屏** | 已确认页面加载正常（`__swprompt` 存在、正文 105 字）；旧版是 WebView2 子窗口不可见。新代码 `promptVisible=1`，待用户重启目视 |
-| **文件槽位漂移** | 已加 300ms / 900ms 两次复核；未真机验 Explorer 是否仍会盖回自己的位置 |
 | **旧配置项** | `[Paths] DeepSeekW/H` 不再读取；`[Folders]` / `[Apps]` 新增 `SlotNZone`，缺省分别工作区 / 辅助区 |
 | **笔记字体 / 频闪** | 字重与空行已修；楷体 16pt 是否合意、打字是否还闪仍需目视 |
 | **分发未验收** | `web/dist` 入库可用，但运行时打包、跨机器首次运行都没试过 |
@@ -80,8 +84,8 @@
 
 ## 下一步（按顺序，一次做一件事）
 
-1. 重启后手按 `Alt+P` / `Ctrl+G`：提示词库与日期框应填满辅助区且内容正常；
-   按 `Alt+1/2/3` 看文件夹是否还漂移。
+1. 重启后手按 `Alt+P` / `Ctrl+G` / `Ctrl+Shift+T`：提示词库与日期框应填满辅助区、
+   标签窗居中记录区且内容正常；按 `Alt+1/2/3` 看文件夹是否还漂移。
 2. 手按 `Alt+Shift+1`（Everything）/ `2`（Obsidian）：应用应启动 / 唤出并落工作区。
 3. 换小屏 / 换缩放验辅助区高度与最大化窗口落区。
 4. 一键启动若要落地，先解决异步启动模型（串行会占住热键线程）。
