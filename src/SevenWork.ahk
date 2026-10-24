@@ -101,6 +101,8 @@ Persistent()
 
 ; （PeerLayoutService 已删除：终端与浏览器都改由 ZoneService 落到辅助区，
 ;   不再需要「同一处右下角」的落点公式。）
+; 应用槽位（Alt+Shift+1/2/3）的命令行与区域配置；Feature 在下方 MODULE 区。
+#Include modules\Launcher\Services\AppSlotService.ahk
 
 ; ═══════════════════════════════════════════════════════════════════════════
 ;  FEATURE 功能层 —— 用户要做什么
@@ -194,6 +196,7 @@ Persistent()
 
 #Include modules\Launcher\Features\PowerShellFeature.ahk
 #Include modules\Launcher\Features\DeepSeekFeature.ahk
+#Include modules\Launcher\Features\AppSlotFeature.ahk
 #Include modules\Launcher\LauncherModule.ahk
 
 

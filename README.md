@@ -32,7 +32,7 @@
 | 笔记 | 每日 `.md`，标签写在文件名里，图片收进 `_assets/日期/` | `Alt+Z` |
 | 文本 | `<Vault>\_prompts\` 下的普通 Markdown（提示词库） | `Alt+P` |
 | 文件 | 三个常用目录随叫随到 | `Alt+1/2/3` |
-| 应用 | PowerShell 终端、DeepSeek 网页，落到辅助区 | `Alt+C` / `Alt+X` |
+| 应用 | PowerShell 终端、DeepSeek 网页（辅助区）；槽位可配任意 exe | `Alt+C` / `Alt+X` / `Alt+Shift+1/2/3` |
 | 按键 | CapsLock → `H/J/K/L` 方向键 | `Alt+Shift+C` |
 | 主题 | 当前主题（整套观感由主题自己定义） | `Alt+S` 里的面板 |
 
