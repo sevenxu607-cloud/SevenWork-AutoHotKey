@@ -17,12 +17,12 @@
 ;
 ; 配色：读平台主题（ThemeService.Palette()）。建窗时由 WebWindow 上色；之后按 Alt+T
 ; 走 OnThemeChanged() —— 只推 CSS 变量、**不重建**（停在哪、搜了什么都还在）。
+;
+; 落点：辅助区中心（place: "zone"）。提示词库是随手呼出的浮层，不参与区域注册，
+; 也不影响笔记的记录区。
 ; ═══════════════════════════════════════════════════════════════════════════
 
 class PromptWindowFeature {
-    ; 首屏落点：工作区右上角，右边距 Config.PlaceRight，顶边下移 120 物理像素
-    static PlaceTop := 120
-
     static _win := ""        ; WebWindow 实例（首次呼出时才建，启动时不多一个隐藏窗口）
     static _focusId := ""    ; 编辑窗保存 / 删除后要定位的 path（空 = 不定位）
     static _tipTimer := ""   ; 复制时那条 ToolTip 的清除定时器（闭包引用）
@@ -38,8 +38,8 @@ class PromptWindowFeature {
               , view:     "prompts"
               , dataDir:  "prompts"
               , handlers: PromptHostHandlers
-              , place:    "topright"
-              , placeTop: this.PlaceTop
+              , place:    "zone"
+              , zone:     "aux"
               , esc:      () => this.Hide()
             })
         return this._win

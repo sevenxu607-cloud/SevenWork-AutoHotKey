@@ -39,6 +39,8 @@ class WorkBench {
         ModuleRegistry.Register(KeysInputModule)
         ModuleRegistry.Register(TextModule)
         ModuleRegistry.Register(FoldersModule)
+        ; 视界：三区域的用户入口（热键 + 面板说明），不持有区域本身。
+        ModuleRegistry.Register(VisionModule)
         ; 外观：只提供「当前主题」的展示页（多主题后在这里选），不持有主题、不建窗口。
         ; 放在最后注册 —— 它不参与启动顺序，order 5 决定它在面板里的位置。
         ModuleRegistry.Register(ThemeModule)

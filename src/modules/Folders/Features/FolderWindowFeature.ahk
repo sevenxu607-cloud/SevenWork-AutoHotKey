@@ -109,6 +109,8 @@ class FolderWindowFeature {
         res := ZoneService.Place(hwnd, zone, {fill: false, allowHidden: false})
         if !res.ok && res.reason != "not-placeable" && res.reason != "minimized" && res.reason != "no-zone"
             LogError("文件夹窗口落区失败：" . zone . " —— " . res.reason)
+        ; 即使这次没摆成也登记：恢复布局时会再试一次。
+        ZoneService.Register(hwnd, "file", zone, false)
     }
 
     static _IsVisible(hwnd) => !!DllCall("IsWindowVisible", "ptr", hwnd, "int")

@@ -44,6 +44,8 @@ class WebWindow {
         this._escFn    := this._Opt(opts, "esc", "")
         this._placeMode := this._Opt(opts, "place", "center")
         this._placeTop := this._Opt(opts, "placeTop", 120)
+        ; place: "zone" 时落到哪个区域（record / aux / work 或中文标签）。
+        this._zone := this._Opt(opts, "zone", "aux")
         this._onReady  := this._Opt(opts, "onReady", "")
         ; 标题栏是否保留「最小化」按钮。
         ; ⚠ 不能走 _Opt：它的规则是「空串即缺省」，而这里缺省值是 false，
@@ -311,9 +313,10 @@ class WebWindow {
 
     ; 摆位：center    = 主屏工作区居中偏上（不写死坐标，换显示器 / 改分辨率都不用改代码）
     ;       topright  = 工作区右上角，右边距 Config.PlaceRight、顶边下移 _placeTop
+    ;       zone      = 指定区域（_zone）的中心；比区域宽时向左溢出，再夹到工作区
     ;       其它      = 交给窗口系统
     _Place() {
-        if (this._placeMode != "center" && this._placeMode != "topright")
+        if (this._placeMode != "center" && this._placeMode != "topright" && this._placeMode != "zone")
             return
         rect := WindowProbe.PrimaryWorkArea()
         if !IsObject(rect)
@@ -355,6 +358,26 @@ class WebWindow {
             if (h > rect.h - 8) {
                 WinMove(, , , rect.h - 8, "ahk_id " . this._hwnd)
                 try WinGetPos(&x, &y, &w, &h, "ahk_id " . this._hwnd)
+            }
+
+            if (this._placeMode = "zone") {
+                z := ZoneService.Rect(this._zone)
+                if IsObject(z) {
+                    ; 外框居中；比区域宽时向左溢出，再夹到工作区（不裁切窗口）
+                    px := z.x + (z.w - w) // 2
+                    py := z.y + (z.h - h) // 2
+                    if (px < rect.x + 10)
+                        px := rect.x + 10
+                    if (px + w > rect.x + rect.w - 10)
+                        px := rect.x + rect.w - 10 - w
+                    if (py < rect.y + 10)
+                        py := rect.y + 10
+                    if (py + h > rect.y + rect.h - 10)
+                        py := rect.y + rect.h - 10 - h
+                    WinMove(px, py, , , "ahk_id " . this._hwnd)
+                    return
+                }
+                ; 区域不可用（小屏 no-fit）→ 退回 center，别停在 AHK 默认点
             }
 
             if (this._placeMode = "topright") {

@@ -386,6 +386,8 @@ class DeepSeekFeature {
             WinSetAlwaysOnTop("On", "ahk_id " . hwnd)
         }
         this._PlaceLikeTerminal(hwnd)
+        ; 登记到区域注册表：Alt+Shift+V 时按这一条把浏览器摆回辅助区。
+        ZoneService.Register(hwnd, "app", "aux", false)
     }
 
     ; 落辅助区并复核尺寸：Edge 会在窗口露面之后重新套用它自己的 --window-size。

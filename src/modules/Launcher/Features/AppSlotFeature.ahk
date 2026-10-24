@@ -104,6 +104,8 @@ class AppSlotFeature {
         res := ZoneService.Place(hwnd, zone, {fill: false, allowHidden: false})
         if !res.ok && res.reason != "not-placeable" && res.reason != "minimized" && res.reason != "no-zone"
             LogError("应用槽位落区失败：" . zone . " —— " . res.reason)
+        ; 登记到区域注册表：Alt+Shift+V 时按这一条把窗口摆回原区域。
+        ZoneService.Register(hwnd, "app", zone, false)
     }
 
     static _IsVisible(hwnd) => !!DllCall("IsWindowVisible", "ptr", hwnd, "int")

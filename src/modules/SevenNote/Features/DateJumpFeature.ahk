@@ -105,7 +105,12 @@ class DateJumpFeature {
         ))
 
         ApplyFilter("")
-        dlg.Show("w560 h485")
+        ; 隐藏态定位到辅助区：先 Show("Hide") 让控件布局定型，再 Center，最后露面。
+        ; （与 WebWindow 同一套做法；Center 内部走 WinMove，收物理像素）
+        dlg.Show("w560 h485 Hide")
+        Sleep 30
+        ZoneService.Center(dlg.Hwnd, "aux", true)
+        dlg.Show()
         searchEdit.Focus()
     }
 

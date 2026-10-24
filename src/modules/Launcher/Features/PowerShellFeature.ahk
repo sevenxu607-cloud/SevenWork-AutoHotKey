@@ -65,6 +65,8 @@ class PowerShellFeature {
             WinSetAlwaysOnTop("On", "ahk_id " . hwnd)
         }
         this._PlaceToAux(hwnd)
+        ; 登记到区域注册表：Alt+Shift+V 时按这一条把终端摆回辅助区。
+        ZoneService.Register(hwnd, "app", "aux", false)
     }
 
     ; 落辅助区：锚定左上、保留终端自己的尺寸（高度归 Windows Terminal 的 profile）。
