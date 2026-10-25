@@ -77,6 +77,8 @@ LICENSE / README / THIRD-PARTY-NOTICES.txt
 BUILD.txt
 ```
 
+已发布：[SevenWork v2.14-portable](https://github.com/sevenxu607-cloud/SevenNote-AutoHotKey/releases/tag/v2.14-portable)
+
 ### 自动演示 / 验收录屏
 
 `tools\demo-sevenwork.ps1` 会拉起临时 Vault、OBS 和独立 AHK 驱动，逐段演示
