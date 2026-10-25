@@ -39,9 +39,15 @@ class PromptEditFeature {
     static Hwnd() {
         if !IsObject(this._gui)
             return 0
-        try return this._gui.Hwnd
+        try hwnd := this._gui.Hwnd
         catch
             return 0
+        ; ⚠ 只看 Gui 对象不够：窗口被系统销毁后，Gui 对象可能还活着，
+        ;   旧 HWND 也仍是非零值。不校验 IsWindow，下次 Open() 会以为窗口
+        ;   还在，然后去操作已经销毁的控件 —— 表现就是「新建提示词异常」。
+        if !hwnd || !DllCall("user32\IsWindow", "ptr", hwnd, "int")
+            return 0
+        return hwnd
     }
 
     static IsShowing() {
@@ -56,6 +62,17 @@ class PromptEditFeature {
 
     ; item = ""（新建）或 PromptStoreService.LoadAll() 里的一项
     static Open(item := "") {
+        ; 任何控件失效 / 旧句柄 / 分类下拉异常都转成明确的 false，
+        ; 不让异常穿到 hostObjects 调用栈里，变成前端一句看不懂的 TypeError。
+        try
+            return this._Open(item)
+        catch as e {
+            LogError("打开提示词编辑窗失败：" . e.Message)
+            return false
+        }
+    }
+
+    static _Open(item := "") {
         if !this.Hwnd() {
             this._gui := ""
             this._Build()
@@ -89,6 +106,7 @@ class PromptEditFeature {
         ; 基线必须在填完值之后取：_SetCatText 走 WM_SETTEXT，值要落定；
         ; 放在赋值之前会记成上一次的残留，于是「刚打开就算脏」。
         this._dirtyBase := this._Snapshot()
+        return true
     }
 
     static Hide() {
@@ -215,8 +233,8 @@ class PromptEditFeature {
         saveBtn.OnEvent("Click", (*) => this.Save())
 
         ; 点标题栏 X = 隐藏（不保存）。与主窗口同一套处理：
-        ; 万一窗口被销毁，Hwnd() 返回 0，下次 Open() 自动重建。
-        g.OnEvent("Close", (*) => this.Hide())
+        ; 返回 true 阻止默认销毁，下一次 Open() 直接复用同一个窗口。
+        g.OnEvent("Close", (*) => (this.Hide(), true))
 
         this._gui := g
 

@@ -157,9 +157,10 @@ class PromptStoreService {
         }
 
         path := dir . "\" . ttl . ".md"
-        ; 改名时若目标已存在（同分类下有同名条目），自动追加 -2 / -3，
-        ; 不覆盖别人的内容 —— 覆盖是不可撤销的。
-        if (oldPath != "" && path != oldPath && FileExist(path))
+        ; 目标已存在（新建同名条目，或改名撞名）时自动追加 -2 / -3，
+        ; 不覆盖已有内容 —— 覆盖是不可撤销的。
+        ; ⚠ 新建时 oldPath 为空，原条件把它排除掉，正好会静默覆盖同名提示词。
+        if (path != oldPath && FileExist(path))
             path := this._UniquePath(dir, ttl)
 
         try {

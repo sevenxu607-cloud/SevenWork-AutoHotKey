@@ -23,7 +23,9 @@ class SevenNoteModule {
         ; +E0x02000000 = WS_EX_COMPOSITED 已不需要：整个客户区交给 WebView2，
         ; 合成由 Chromium 自己做，没有 RichEdit 那种「先擦后画」的频闪。
         ; 固定落记录区后不再置顶：置顶会挡住工作区里正在用的窗口。
-        g.Opt("+Resize +MinSize450x300")
+        ; 固定落记录区，不再给「最大化」—— 最大化后下次 Alt+Z 又会被摆回记录区，
+        ; 行为不一致；真正需要全屏写作时应另做专注模式，而不是留一个半成品按钮。
+        g.Opt("+Resize -MaximizeBox +MinSize450x300")
         ; 首帧底色：Chromium 起来前不铺东西会露白。取当前主题的窗底色同档。
         g.SetFont("s14", "楷体")
         pInit := ThemeService.Palette()
@@ -47,7 +49,7 @@ class SevenNoteModule {
         ; ⚠ 标题栏的 × 必须与 Alt+Z 走同一条路（WindowFeature.Hide）：
         ;   从前是裸的 g.Hide() —— 绕过 `Window.BeforeHide`（保存）与入场动画复位，
         ;   用户点一下 × 就等于「这次编辑既不存盘、入场动画也不复位」。
-        g.OnEvent("Close", (*) => (WindowFeature.Hide(), true))
+        g.OnEvent("Close", (*) => SevenNoteModule._OnClose())
         g.OnEvent("Size", (guiObj, mm, w, h) => SevenNoteModule.OnSize(guiObj, mm, w, h))
 
         ; ═══ 挂载 Feature ═══
@@ -97,6 +99,14 @@ class SevenNoteModule {
         ; 退出守卫：Alt+Shift+S 时平台逐条问这里的检查函数。
         ; ⚠ 登记在 Init（不是 Start）：它只回答「能不能退」，不碰窗口、不读内容。
         EventBus.Emit("Exit.Guard", {id: "笔记", check: (*) => SevenNoteModule.ExitCheck()})
+    }
+
+    ; 标题栏 × 与 Alt+Z 走同一条 Hide（保存→隐藏）。
+    ; Hide 失败时它自己已经给出原因；这里始终返回 true，阻止默认销毁 ——
+    ; 否则窗口会被系统关掉，而用户的修改还没确认落盘。
+    static _OnClose() {
+        WindowFeature.Hide()
+        return true
     }
 
     ; 退出前把当前笔记存一次（平台只认 {ok, reason}）。

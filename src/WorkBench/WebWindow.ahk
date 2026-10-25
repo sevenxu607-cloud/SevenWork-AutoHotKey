@@ -106,15 +106,17 @@ class WebWindow {
     Close() {
         if !this.IsOpen()
             return
-        ; 收起前先停掉待执行的入场重试，并让页面把入场状态复位。
-        ; ⚠ 顺序不能反：reset 必须在 Hide **之前** —— 隐藏期间页面仍在跑，
-        ;   动画会在后台跑完，下次 Show() 的第一帧就是终态（视觉上「闪一下」）。
-        ;   这也是 reveal.ts 里那句注释的由来。
+        ; 收起前先停掉待执行的入场重试。
+        ; ⚠ 这里**不能**再同步 Eval 让页面复位：ExecuteScriptAsync().await() 在页面
+        ;   卡住 / 正在销毁时会把 Close 线程一起拖住，表现就是「叉和 Alt+P 都关不掉」。
+        ;   窗口先隐藏；入场状态下次 Open 时页面自己重建即可，宁可少一次动画。
         this._CancelReveal()
         this._revealSeq += 1
-        if this._mounted
-            WebHostService.Eval("window.__swfx&&window.__swfx.reset()", this._hwnd)
+        ; 隐藏失败（窗口已被系统销毁 / 句柄失效）不能让 Close 抛到 GUI Close 回调里，
+        ; 否则下一次 Open 之前的状态永远清不干净。
         try this._gui.Hide()
+        catch as e
+            LogError(this._title . " 隐藏失败：" . e.Message)
         this._UnregisterEsc()
     }
 
@@ -130,27 +132,42 @@ class WebWindow {
     ; ⚠ Fill 必须补：Chromium 子窗口在父窗口隐藏期间尺寸停滞，回来后会是一块
     ;   旧尺寸的画面（右侧留一条底色）。
     Activate() {
+        ; 只有「显示窗口」失败才真正中止。
+        ; ⚠ 不要把 WinActivate 和后面的 Fill / Esc 放进同一个 try：这两个项目里
+        ;   反复出现过 Target window not found，而它一抛，Resize 和 Esc 重注册都会被
+        ;   跳过 —— 表现成「窗口出来了，但内容区是旧尺寸 / 按 Esc 关不掉」。
         try {
             ; 最小化的窗口直接 Show() 只是把任务栏按钮点亮，用户眼前仍然什么都没有；
             ; 而它此刻的 WinGetPos 是屏幕外的停放位（-21333 一类），按它算 Fill / 摆位
             ; 都会落到看不见的地方。所以先恢复，再走常规的 Show + Fill。
+            ; ⚠ 用 ShowWindow 而不是 WinRestore：后者按 WinTitle 匹配，在
+            ;   「最小化 → 可见」那一瞬会抛 Target window not found；而且它一失败，
+            ;   下面的 Show() 只会把任务栏按钮点亮，窗口仍停在 -32000。
             if DllCall("user32\IsIconic", "ptr", this._hwnd, "int")
-                WinRestore("ahk_id " . this._hwnd)
+                try DllCall("user32\ShowWindow", "ptr", this._hwnd, "int", 9)
             this._gui.Show()
-            WinActivate("ahk_id " . this._hwnd)
-            WebHostService.Resize(this._hwnd)
-            ; ⚠ Esc 必须在这里补注册：Close() 会把它注销，而这条路径**不重建窗口**，
-            ;   少了这一句就只有「第一次打开」能按 Esc —— 之后每次呼出都是死的，
-            ;   而且日志里一个字都没有（注册失败才会记日志，这里是压根没注册）。
-            if !this._escRegistered
-                this._escRegistered := this._RegisterEsc()
-            ; 已经建好的窗口再呼出：页面多半早就 ready，第一轮就命中；
-            ; 但窗口是刚建完就藏、又马上打开的话仍在路上 —— 交给同一套重试，
-            ; 别在这里直接 _Reveal()（那会在页面没就绪时白喊一次）。
-            this._RevealWhenReady()
         } catch as e {
-            LogError(this._title . " 激活失败：" . e.Message)
+            LogError(this._title . " 显示失败：" . e.Message)
+            return
         }
+
+        ; 激活是锦上添花；失败没有用户可见后果，不能连带跳过后面的步骤。
+        if WinExist("ahk_id " . this._hwnd)
+            try WinActivate("ahk_id " . this._hwnd)
+
+        WebHostService.Resize(this._hwnd)
+        ; ⚠ Esc 必须在这里补注册：Close() 会把它注销，而这条路径**不重建窗口**，
+        ;   少了这一句就只有「第一次打开」能按 Esc —— 之后每次呼出都是死的，
+        ;   而且日志里一个字都没有（注册失败才会记日志，这里是压根没注册）。
+        if !this._escRegistered
+            this._escRegistered := this._RegisterEsc()
+
+        ; 已经建好的窗口再呼出：页面多半早就 ready，第一轮就命中；
+        ; 但窗口是刚建完就藏、又马上打开的话仍在路上 —— 交给同一套重试，
+        ; 别在这里直接 _Reveal()（那会在页面没就绪时白喊一次）。
+        try this._RevealWhenReady()
+        catch as e
+            LogError(this._title . " 入场失败：" . e.Message)
     }
 
     ; 呼出粒子（冰晶迸发）。所有 Web 窗口共用一个入口 ——
@@ -282,8 +299,10 @@ class WebWindow {
         this._gui := g
         this._hwnd := g.Hwnd
 
-        ; 点 × 只藏不销毁 —— WebView2 重建要 300ms 上下，而这些窗口都是随手呼出的
-        g.OnEvent("Close", (*) => this.Close())
+        ; 点 × 只藏不销毁 —— WebView2 重建要 300ms 上下，而这些窗口都是随手呼出的。
+        ; ⚠ 回调返回 true 明确阻止默认关闭：别指望「Close() 里 Hide 了就不销毁」，
+        ;   否则窗口被销毁后 WebView2 槽位与 _mounted 还会留在旧句柄上。
+        g.OnEvent("Close", (*) => (this.Close(), true))
 
         ; 隐藏态完成定位再露面：先 Show 再 WinMove 会「飘一下」（.clinerules/03）
         g.Show("w" . this._w . " h" . this._h . " Hide")

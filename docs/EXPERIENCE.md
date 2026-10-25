@@ -22,6 +22,7 @@
 | 7 资料怎么记 | 四份资料的分工 | 收尾 |
 | 8 平台能力契约 | Capability 只收什么、失败怎么返回 | 新增能力 |
 | 9 已经算过账的方向 | 别再重新论证的清单 | 想推翻某个设计之前 |
+| 10 演示与录屏 | 外部驱动、OBS 双显卡、分章文件 | 做验收视频 / 自动化演示 |
 
 ---
 
@@ -52,8 +53,9 @@
 - **`SetTimer` 收不了类静态方法**：用箭头函数包一层，并把闭包**存字段**，否则停不掉。
 - **未捕获异常默认弹模态框并停摆**：组合根注册 `OnError` 写日志后继续。⚠ **兜底只保证不倒，
   不保证逻辑对** —— 异步回调碰窗口前仍要自己过闸。
-- **`Send` 触发不了 `HotIf` 上下文热键**（键盘钩子忽略同脚本的 Send）。探针只能验无上下文的
-  全局热键，其余**只能手按**。
+- **`Send` 默认触发不了 `HotIf` 上下文热键**（键盘钩子忽略同脚本的 Send）。**外部驱动进程**
+  设 `SendLevel(1)` + `SendMode("Input")` 后可以触发，已实测（`demo-sevenwork.ahk` 用它
+  驱动 `Ctrl+G` / `Ctrl+N`）；同脚本内的探针仍不要指望。
 - **`FileExist` 返回 `"A"` 不是 `true`**；比较数字前先 `IsNumber()` 守卫（空串会抛
   `Expected a Number`）。
 
@@ -70,6 +72,21 @@
   表现成「点保存没反应、日志一条不写」。
 - **定位在隐藏态完成**：`Show("Hide")` → 量尺寸 / `WinMove` → 最后 `Show()`。反过来会先出现在
   默认落点、再跳到目标位置。
+- **重新呼出 WebWindow 时，`WinActivate` 失败不能连带跳过 Resize / Esc**：实测
+  `Alt+S` 关闭面板再打开，`WinActivate("ahk_id …")` 会抛 `Target window not found`；
+  它和 `WebHostService.Resize`、`Hotkey("Esc", …)` 原来在同一个 `try` 里，失败后窗口
+  虽然出来了，内容区仍是旧尺寸、Esc 也没重新注册。修法：只把 `Show()` 当硬失败，
+  `WinActivate` 单独容错，Resize 与 Esc 重注册始终执行；最小化恢复用
+  `ShowWindow(SW_RESTORE)`，不要用按标题匹配的 `WinRestore`。
+  **已实测（2026-10-24，面板开→关→再开→Esc）**。
+- **窗口 Close 里不要同步 Eval 页面脚本**：`WebHostService.Eval()` 内部是
+  `ExecuteScriptAsync().await()`；页面卡住 / 正在销毁时会把 GUI Close 线程一起拖住，
+  表现成「叉和 Alt+P 都关不掉」。先 `Hide()`，入场复位宁可不做。
+- **外部程序槽位不能把「列表第一个窗口」当主窗**：Chromium / Electron / PyCharm
+  一类程序会有隐藏合成窗或启动画面；`WinShow` 出来可能是一块没有正常关闭入口的
+  巨大空白窗口。只选可见、未最小化、有标题、尺寸正常的主窗；**不要为了唤醒而
+  `WinShow` 任意隐藏 / 最小化句柄**，没有可见窗就交给 `Run(cmd)`。
+  **已按代码审查修复，待真机复验各槽位。**
 - **`WinMove` 收物理像素，`Gui.Move` 收逻辑单位**：150% 缩放下混用会二次放大。
   位置记忆全程 `WinMove` + `WinGetPos`，尺寸别写死。
 - **最小化窗口 `IsWindowVisible` 仍是 1**，而且 `WinGetPos` 返回屏幕外停放位（`-32000` 一类）。
@@ -284,3 +301,31 @@
 | 伙伴窗口适配（`Launcher.Preparing/Opened/Failed` + `PeerCoordinator` + `PeerLayoutService`） | 已由三区域取代（2026-10-24）：让位 / 堆叠 / 冻结那套要维护「谁动谁适配」，而笔记一旦固定落记录区就不再需要联动。新窗口只调 `ZoneService.Place` |
 | 所有窗口强制填满区域 | **例外已收窄（2026-10-24）**：终端高度归 Windows Terminal profile、浏览器会被 Edge 的 `--window-size` 吸附 —— 这两类保持锚定；**文件 / 应用槽位反过来必须填满 + 300/900/1600ms 复核**，否则它们会恢复上次尺寸、越区或向上漂移（Everything / Explorer 已实测稳定） |
 | 一键启动（暂缓，不是否掉） | 串行启动会占住热键线程（终端 15s、浏览器 15s）；先要解决异步模型，否则一按 Alt+V 十几秒没反应 |
+
+## 10. 演示与录屏
+
+- **双显卡笔记本上，OBS 跑在独显会录出黑屏**：本机 RTX 4060 + Intel UHD，
+  `monitor_capture` 选到 2560×1600 显示器仍 `sourceWidth=0`，截图纯白 / 视频纯黑。
+  在 Windows「图形设置」把 `obs64.exe` 设为**省电 / 集显**并重启 OBS 后，
+  同一源立刻出画面。**已实测（2026-10-24，OBS 32.2.2 / Win11 25H2）**。
+- **OBS `StopRecord` 的响应早于文件落盘**：紧接着 `rename` / `copy` 会得到 0KB，
+  源文件仍在后台继续写。`demo-obs.mjs` 在 stop 里等大小非零且连续稳定 500ms 再搬；
+  下一段 start 也先等 `outputActive=false`。**已实测**。
+- **外部 AHK 驱动要用 `SendLevel(1)`**：`HotIf` 上下文热键走键盘钩子，默认会忽略同脚本
+  / 低级别注入事件；独立进程 + `SendLevel(1)` + `SendMode("Input")` 可触发，
+  已用 `Ctrl+G` / `Ctrl+N` / `Esc` 验证。
+- **别让录屏拍进真实工作内容**：驱动启动前用 `Shell.Application.ToggleDesktop()`
+  收起其它窗口，结束后再 toggle 恢复；否则左侧的 VS Code / 真实笔记会进画面。
+- **Obsidian 不认 `Obsidian.exe <vault>`**：它按 `%AppData%\obsidian\obsidian.json`
+  里 `open=true` 的 vault 启动。演示脚本先备份该 json，注册临时 Vault 为唯一 open，
+  结束后还原；真实 Obsidian 必须先关。**已实测**（标题 `工作台演示 - ObsidianVault`）。
+- **窗口标题匹配要带 class**：OBS 标题含 profile 名 `SevenNoteJourneyCapture`，
+  `WinWait("SevenNote")` 会先抓到 OBS。演示驱动用
+  `SevenNote ahk_class AutoHotkeyGUI`，并在录制前最小化 OBS。
+- **本地录制偏暗先查 OBS Color Range，不是先调显示器亮度**：本机 profile 原为
+  `ColorRange=Partial`，同一段 05 素材抽帧平均亮度约 **76**、`yuv420p(tv)`；
+  改成 `Full` 后约 **114**、`yuvj420p(pc)`。这是色彩范围不一致，不是壁纸或背光。
+  录制本地 mp4 用 Full；要发平台再换回 Partial。**已实测（2026-10-25）**。
+- **浅色壁纸不能只改 `HKCU\\Control Panel\\Desktop\\WallPaper`**：Windows 的
+  自定义主题会把实际壁纸拉回 OEM 文件；直接改注册表截图仍是旧壁纸。演示环境
+  要么改主题 / 壁纸文件并完整恢复，要么不要拿壁纸当提亮手段。

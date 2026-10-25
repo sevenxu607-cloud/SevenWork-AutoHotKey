@@ -3,14 +3,16 @@
 > **覆盖式更新**：每次会话结束改这一份，不追加流水、不留历史版本（历史在 Git）。
 > 新会话先读这里，再核对代码与 `git log` —— 这张卡是**起点，不是真理**。
 >
-> 更新于 `2026-10-24`　基线提交 `a3236df`（七个核心应用 + 三区域收尾；浮层填满与应用 include 修复在后）
+> 更新于 `2026-10-24`　基线提交 `989a746`（七个核心应用 + 三区域；本轮窗口稳定性修复见下）
 
 ---
 
 ## 当前焦点
 
-七个核心应用与三区域已完成并验证；剩**用户手按验证新热键**与目视观感。
-一键启动 / 自定义布局按用户决定暂缓，视界页只保留说明与 `Alt+Shift+V`。
+七个核心应用与三区域已完成并验证；WebView2 窗口激活 / 关闭骨架与演示录制链路
+已修完 `Alt+S` → 笔记 → 提示词 → 文件 → Obsidian → 视界 → 退出 的全流程可自动跑通。
+剩**管理页保存手验**与目视观感；一键启动 / 自定义布局按用户决定暂缓，
+视界页只保留说明与 `Alt+Shift+V`。
 
 ## 已完成（括号内是验证范围）
 
@@ -51,6 +53,48 @@
 - **回归**：AHK 109 + web 17 全绿；`check-docs` 退出码 0；真机启动 stderr 空、
   `_error.log` 无新增；`Alt+Z` 笔记仍落记录区。
 
+### 2026-10-24 窗口稳定性修复（本轮）
+
+- **WebWindow 激活容错**：`Activate()` 把 `WinActivate` 失败与 `Resize` / Esc 重注册拆开，
+  重新呼出后尺寸和 `Esc` 不再因一次 `Target window not found` 全部跳过。
+- **最小化恢复**：WebWindow 重新呼出时用 `ShowWindow(SW_RESTORE)` 恢复，不再依赖
+  会按标题匹配失败的 `WinRestore`。
+- **笔记窗关闭**：`WindowFeature.Hide()` 返回明确成功/失败；保存失败时给 ToolTip，
+  不再静默拒绝关闭；笔记窗移除最大化按钮。
+- **日期跳转**：原生对话框移除最大化/最小化；关闭按钮 / Esc / 双击选择统一走
+  `CloseDialog()`，先注销上下文热键再销毁；跳转失败保留对话框并给出原因。
+- **提示词编辑**：`Hwnd()` 增加 `IsWindow` 校验；打开失败返回 `false`，前端显示错误；
+  新建同名提示词改为自动追加 `-2`，不再覆盖已有文件。
+- **提示词库关闭**：`WebWindow.Close()` 不再同步 `Eval` 页面复位；页面卡住时不再
+  把 Close 线程一起拖住，X / `Alt+P` 都能收起。
+- **文件槽位**：先在 `WinHide` 的隐藏态按区域算好并 `WinMove`，再 `WinShow`；
+  去掉露面后的 Watch，避免先在工作区闪一下再位移。
+- **应用槽位**：`_FindWindow` 只认可见、未最小化、有标题、尺寸正常的窗口；
+  不再回退「列表第一个」，也不 `WinShow` 隐藏 / 最小化句柄。Chromium / Electron
+  的隐藏合成窗 / 启动画面一旦被强行显示，就是一块没有正常关闭入口的巨大空白窗；
+  没有可见主窗时宁可走 `Run(cmd)` 让程序自己唤醒。桌面 / 任务栏类也排除。
+- **退出**：`RequestExit()` 用 `finally` 复位 `_exiting`，中途异常不会让
+  `Alt+Shift+S` 永久失效。
+
+验证：AHK 109 + web 17 全绿，`check-docs` 通过；真机冒烟（`Alt+S` 开 → 关 → 再开 →
+Esc、日期窗开/关、提示词新建/关闭、`Alt+Shift+S` 退出）通过，`_error.log` 无新增。
+
+### 2026-10-24 演示自动化
+
+- 新增 `tools/demo-sevenwork.ps1`、`tools/demo-sevenwork.ahk`、`tools/demo-obs.mjs`
+  与 `tools/demo-fixtures/`：临时 Vault + 独立 AHK 驱动 + OBS WebSocket 分章录制。
+- `-Mode Test` 13 条断言全绿（面板 / 笔记写入 / `Ctrl+G` / `Ctrl+N` / 文件 /
+  Obsidian / 退出）；`-Mode Demo -Record` 产出 7 段 mp4 + 每段 `cover.png`。
+- 真实 `%AppData%\SevenWork\_config.ini`、`%AppData%\obsidian\obsidian.json`
+  均先备份、结束时还原；录制前用 `Shell.Application.ToggleDesktop()` 收起其它窗口。
+- **双显卡前提**：OBS 必须由 Windows 图形设置指定为**省电 / 集显**并重启；
+  独显上 `monitor_capture` 会录出黑屏（本机已验证）。
+- OBS `StopRecord` 响应早于文件落盘，必须在 `stop` 里等文件大小稳定再搬，
+  否则会出现 0KB 片段。
+- **亮度对照已实测**：OBS profile `ColorRange=Partial` 的旧视频抽帧平均约 76；
+  改 Full 后约 114（`yuvj420p(pc)`）。本地素材建议 Full；浅色壁纸只改注册表
+  会被 Windows 自定义主题覆盖，未把系统壁纸改动留在机器上。
+
 ### 此前几轮（细节见 `git log`，只留仍需知道的范围）
 
 - Markdown 清洁逻辑独立 + 代码区保护 + 前端测试；面板切页保留未保存值。
@@ -64,6 +108,9 @@
 | --- | --- |
 | **一键启动 / 自定义布局** | **暂缓**（用户 2026-10-24 定）。视界页只有说明与恢复布局；布局字段没有消费者就不写，避免假入口 |
 | **同区多窗口重叠** | 区域只保证「落到哪块」。终端与浏览器都落辅助区；恢复布局会把它们叠在一起，不做堆叠 |
+| **日期选择 / 面板保存未手验** | 演示已验证 `Ctrl+G` 能打开日期框；选中日期后的跳转、管理页保存结果仍需真机确认 |
+| **OBS 录制依赖集显** | 本机独显上 `monitor_capture` 黑屏；已在 Windows 图形设置为 OBS 指定省电 / 集显。换机 / 重启后要复查 |
+| **应用槽位残留空白窗** | 旧逻辑已可能 `WinShow` 出 Obsidian 等程序的空白合成窗；本轮停止再选这类句柄，旧实例残留需重启对应程序清掉 |
 | **辅助区高度 1020** | 未真机验证 Windows Terminal 会不会按 profile 弹回；终端目前只锚定位置、不改高度 |
 | **最大化窗口落区** | `PlacementExecutor` 已补 `IsZoomed → ShowWindow(SW_RESTORE)`，**未真机验** |
 | **`Alt+Shift+1/2/3`** | 未手按验证输入法 / 驱动是否拦截；`Alt+Shift+V` 同理 |

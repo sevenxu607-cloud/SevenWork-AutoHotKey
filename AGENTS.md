@@ -8,7 +8,7 @@
 - `src/` —— AHK：`WorkBench/`（Kernel / Service / Capability / Coordinator）+ `modules/<模块>/`
 - `web/src/` —— Vue + Milkdown；`web/dist` 入库，供 AHK 直接加载
 - `tests/` —— AHK 断言（`RunTests.ahk`）；`web/tests/` 前端纯函数（`node:test`）
-- `tools/` —— `run-tests.ps1` / `check-docs.ps1`
+- `tools/` —— `run-tests.ps1` / `check-docs.ps1` / `demo-sevenwork.*`（演示录屏）
 - `docs/` —— INTENT（去哪）/ STATE（停在哪）/ EXPERIENCE（怎么走）/ LAUNCHER-GUIDE（加外部窗口）
 - `.clinerules/` —— 强制规则 01~05（语言 / 架构 / AHK 陷阱 / 验证 / 资料）
 
@@ -21,6 +21,8 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\run-tests.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File tools\check-docs.ps1
 # 前端构建：改 web/src 后必须重建，dist 入库
 cd web; npm run build
+# 演示验收 / OBS 分章录制（Test 不录制；Demo 需 OBS 集显）
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\demo-sevenwork.ps1 -Mode Test
 ```
 
 改 `.ahk` 还要做语法预检 + 真机启动；做法见 `.clinerules/04-workflow.md`。

@@ -136,7 +136,10 @@ class PromptWindowFeature {
 
     ; 新建（Ctrl+N / 页面上的「新建」按钮）→ 直接开编辑窗，不必绕前端
     static NewPrompt(*) {
-        PromptEditFeature.Open("")
+        if PromptEditFeature.Open("")
+            return
+        try ToolTip("打开新建提示词窗口失败（详见 _error.log）")
+        SetTimer(() => ToolTip(), -4000)
     }
 
     ; 双击 / 页面按钮：复制正文并给个鼠标旁的确认。返回 "ok" / "err:原因"。
@@ -159,13 +162,15 @@ class PromptWindowFeature {
     ; 打开编辑窗。path 为空 = 新建。
     static EditPath(path) {
         if (path = "") {
-            PromptEditFeature.Open("")
-            return "ok"
+            if PromptEditFeature.Open("")
+                return "ok"
+            return "err:打开新建提示词窗口失败（详见 _error.log）"
         }
         for it in PromptStoreService.LoadAll() {
             if (it.path = path) {
-                PromptEditFeature.Open(it)
-                return "ok"
+                if PromptEditFeature.Open(it)
+                    return "ok"
+                return "err:打开提示词编辑窗口失败（详见 _error.log）"
             }
         }
         return "err:条目不存在（可能已被删或改名）"

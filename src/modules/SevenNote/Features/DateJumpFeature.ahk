@@ -5,10 +5,15 @@
 ; ======================================================================
 
 class DateJumpFeature {
+    ; 上一次 JumpTo 失败的原因（对话框留在屏幕上给用户看，不静默关掉）
+    static _lastError := ""
+
     ; 别的 Feature（今日）要跳日期时发这个事件 —— Feature 之间不互相调用
     static Init() {
         EventBus.On("Date.JumpRequested", (d) => this.JumpTo(d.date))
     }
+
+    static LastError() => this._lastError
 
     static ShowDialog() {
         ; 这是笔记模块自己的对话框，标题跟着模块显示名走（不借用工作台的 Config.AppName）
@@ -18,7 +23,9 @@ class DateJumpFeature {
             return
         }
 
-        dlg := Gui("+AlwaysOnTop", winTitle)
+        ; 固定尺寸的搜索对话框：最大化 / 最小化都没有意义，
+        ; 而且控件只按 aux 区域布局一次，最大化后会错位。
+        dlg := Gui("+AlwaysOnTop -MinimizeBox -MaximizeBox", winTitle)
         dlg.SetFont("s11", "Microsoft YaHei")
         ; 配色跟着平台主题走（对话框是短命的：打开时取一次当期色板即可，
         ; 开着的时候按 Alt+T 不追 —— 下次打开就是新色）
@@ -81,6 +88,21 @@ class DateJumpFeature {
 
         searchEdit.OnEvent("Change", (*) => ApplyFilter(Trim(searchEdit.Value)))
 
+        ; 关闭对话框的唯一出口：先注销本次注册的上下文热键，再销毁窗口。
+        ; ⚠ 关闭按钮 / Esc / 双击选择原来直接 Destroy，跳过了注销；
+        ;   下次打开会累积旧热键，表现成「这个窗口怎么关都不对」。
+        CloseDialog(*) {
+            try {
+                HotIfWinActive(winTitle)
+                try Hotkey("Enter", "Off")
+                try Hotkey("NumpadEnter", "Off")
+                try Hotkey("Escape", "Off")
+            } finally {
+                HotIf()
+                try dlg.Destroy()
+            }
+        }
+
         JumpToSelected(*) {
             row := lv.GetNext()
             if (row = 0)
@@ -88,28 +110,29 @@ class DateJumpFeature {
             dateStr := lv.GetText(row, 1)
             if (dateStr = "")
                 return
-            dlg.Destroy()
-            DateJumpFeature.JumpTo(dateStr)
+            if DateJumpFeature.JumpTo(dateStr) {
+                CloseDialog()
+                return
+            }
+            ; 跳转失败时保留对话框并说明原因 —— 先 Destroy 会让用户只看到
+            ; 「窗口关了、笔记没变」，完全不知道发生了什么。
+            msg := "跳转失败：" . DateJumpFeature.LastError()
+            try ToolTip(msg)
+            SetTimer(() => ToolTip(), -4000)
+            LogError(msg)
         }
 
         lv.OnEvent("DoubleClick", JumpToSelected)
 
         btnClose := dlg.AddButton("x" . (lw - 94) . " y" . (lh - 50) . " w80", "关闭")
-        btnClose.OnEvent("Click", (*) => dlg.Destroy())
+        btnClose.OnEvent("Click", CloseDialog)
 
         HotIfWinActive(winTitle)
         Hotkey("Enter", (*) => JumpToSelected(), "On")
         Hotkey("NumpadEnter", (*) => JumpToSelected(), "On")
-        Hotkey("Escape", (*) => dlg.Destroy(), "On")
+        Hotkey("Escape", (*) => CloseDialog(), "On")
         HotIf()
-        dlg.OnEvent("Close", (*) => (
-            HotIfWinActive(winTitle),
-            Hotkey("Enter", "Off"),
-            Hotkey("NumpadEnter", "Off"),
-            Hotkey("Escape", "Off"),
-            HotIf(),
-            dlg.Destroy()
-        ))
+        dlg.OnEvent("Close", (*) => CloseDialog())
 
         ApplyFilter("")
         ; 填满辅助区：隐藏态定位，最后露面。
@@ -122,19 +145,29 @@ class DateJumpFeature {
     }
 
     static JumpTo(dateStr) {
-        if (dateStr = "")
+        this._lastError := ""
+        if (dateStr = "") {
+            this._lastError := "日期为空"
             return false
+        }
 
         ; ⚠ 与切日期同一条规矩：存不住就不跳。
         ;   从前只发 `Save.Requested` 就走，等于「保存失败也照样跳过去」。
         saved := NoteSessionService.Save()
-        if !saved.ok && !(saved.HasProp("recoverable") && saved.recoverable)
+        if !saved.ok && !(saved.HasProp("recoverable") && saved.recoverable) {
+            this._lastError := "当前笔记保存失败："
+                . (saved.HasProp("reason") ? saved.reason : "未知原因")
             return false
+        }
 
         ; 换文档由 NoteSessionService 统一负责（读文件 → 推编辑器 → 提交日期）。
         ; 它失败时日期不变，屏幕上还是原来那一篇。
-        if !NoteSessionService.Open(dateStr).ok
+        opened := NoteSessionService.Open(dateStr)
+        if !opened.ok {
+            this._lastError := "打开日期失败："
+                . (opened.HasProp("reason") ? opened.reason : "未知原因")
             return false
+        }
         EventBus.Emit("Date.Switched", {date: dateStr})
         return true
     }

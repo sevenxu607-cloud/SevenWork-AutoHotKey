@@ -82,19 +82,31 @@ class AppSlotFeature {
             ids := WinGetList("ahk_exe " . exe)
             if !ids.Length
                 return 0
-            first := 0
             best := 0, bestArea := -1
             for h in ids {
-                if !first
-                    first := h
+                ; 只认可见、未最小化、有标题、尺寸正常的主窗。
+                ; ⚠ 不要为「把隐藏/最小化应用叫回来」而 WinShow 任意句柄：
+                ;   Chromium / Electron 程序（Obsidian、PyCharm）会有隐藏合成窗 /
+                ;   启动画面，WinShow 后得到一块没有标题、没有正常关闭入口的巨大
+                ;   空白窗口 —— 这是应用槽位最严重的故障。宁可走 Run(cmd) 让程序
+                ;   自己唤醒，也不碰这些句柄。
                 if !DllCall("IsWindowVisible", "ptr", h, "int")
-                    || DllCall("IsIconic", "ptr", h, "int")
+                    continue
+                if DllCall("IsIconic", "ptr", h, "int")
                     continue
                 if (WinGetTitle("ahk_id " . h) = "")
+                    continue
+                ; 桌面 / 任务栏不是应用主窗口；若槽位误填 explorer.exe，
+                ; 不能把整个桌面当成目标窗口来填满。
+                cls := WinGetClass("ahk_id " . h)
+                if (cls = "Progman" || cls = "WorkerW" || cls = "Shell_TrayWnd")
                     continue
                 try
                     WinGetPos(, , &w, &hh, "ahk_id " . h)
                 catch
+                    continue
+                ; 0×0 / 启动残影不参与「最大窗口」评选。
+                if (w < 120 || hh < 80)
                     continue
                 area := w * hh
                 if (area > bestArea) {
@@ -102,7 +114,7 @@ class AppSlotFeature {
                     bestArea := area
                 }
             }
-            return best ? best : first
+            return best
         } finally {
             DetectHiddenWindows(detectOld)
         }

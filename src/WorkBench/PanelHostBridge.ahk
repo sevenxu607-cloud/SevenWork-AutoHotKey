@@ -528,6 +528,10 @@ class PanelData {
             return "err:" . e.Message
         }
 
+        if !ok
+            ; 模块 apply 返回 false 时也留一条：前端只会显示一句通用失败，
+            ; 没有这条日志就不知道是哪个模块、哪次保存。
+            LogError("模块设置保存返回失败：" . moduleId)
         return ok ? "ok" : "err:保存失败（配置目录不可写？详见 _error.log）"
     }
 }

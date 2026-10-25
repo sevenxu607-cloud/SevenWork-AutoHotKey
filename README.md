@@ -55,6 +55,30 @@
 
 改前端（`web\src\`）之后要在 `web\` 下 `npm run build`，产物 `web\dist\` 已入库、AHK 从这里加载。
 
+### 自动演示 / 验收录屏
+
+`tools\demo-sevenwork.ps1` 会拉起临时 Vault、OBS 和独立 AHK 驱动，逐段演示
+工作台、笔记、提示词、文件、Obsidian、视界和退出；不读真实笔记。
+
+```powershell
+# 只跑 UI 断言，不录制
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\demo-sevenwork.ps1 -Mode Test
+
+# 每段单独录制成 mp4，并保存 cover.png / driver.log
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\demo-sevenwork.ps1 -Mode Demo -Record
+```
+
+输出在桌面 `SevenWork-Demo\<时间戳>\`，按章节分子目录。录制前请关掉真实的
+Obsidian；脚本会临时备份并还原 `%AppData%\SevenWork\_config.ini` 与
+`%AppData%\obsidian\obsidian.json`。OBS 需要在 Windows「图形设置」里指定为
+**省电 / 集显**（双显卡笔记本上独显会截出黑屏），并开启 WebSocket 4456。
+素材目录、配置备份与还原都在脚本退出时清理。
+
+本机实测：OBS profile 的 **Color Range = Partial** 会让本地 mp4 暗暗的；
+在 `设置 → 高级 → 视频` 改成 **Full** 后，视频从 `yuv420p(tv)` 变为
+`yuvj420p(pc)`，抽帧平均亮度约 **76 → 114**。录制本地素材建议 Full；
+要发给别人或上传平台再改回 Partial。
+
 ## 数据与安全
 
 ```text

@@ -84,24 +84,28 @@ class WorkBench {
         if this._exiting
             return
         this._exiting := true
+        try {
+            reasons := []
+            for id, fn in this._exitGuards {
+                reason := this._RunGuard(id, fn)
+                if (reason != "")
+                    reasons.Push(reason)
+            }
+            ; 面板里的设置字段只活在前端：没点「保存设置」就退出等于把它们丢掉。
+            pending := this._PanelPending()
+            if (pending != "")
+                reasons.Push(pending)
 
-        reasons := []
-        for id, fn in this._exitGuards {
-            reason := this._RunGuard(id, fn)
-            if (reason != "")
-                reasons.Push(reason)
-        }
-        ; 面板里的设置字段只活在前端：没点「保存设置」就退出等于把它们丢掉。
-        pending := this._PanelPending()
-        if (pending != "")
-            reasons.Push(pending)
-
-        if reasons.Length {
-            this._ExplainHold(reasons)
+            if reasons.Length {
+                this._ExplainHold(reasons)
+                return
+            }
+            ExitApp()
+        } finally {
+            ; 任何一步抛错都不能让 _exiting 永久为 true —— 否则下一次按
+            ; Alt+Shift+S 会在第一行直接 return，看起来就是「退出键没用」。
             this._exiting := false
-            return
         }
-        ExitApp()
     }
 
     ; 跑一条守卫。返回空串 = 通过；否则返回给人看的原因。

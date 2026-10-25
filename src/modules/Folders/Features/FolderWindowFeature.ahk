@@ -46,8 +46,7 @@ class FolderWindowFeature {
             return
         }
 
-        this._ShowAndFocus(hwnd)
-        this._PlaceBySlot(slot, hwnd)
+        this._ShowAndFocus(hwnd, slot)
     }
 
     ; ═══ 打开 ═══
@@ -55,6 +54,9 @@ class FolderWindowFeature {
     static _Launch(slot, path) {
         ; Run(目录) 走 ShellExecute → **尊重用户的「在同一窗口中打开每个文件夹」设置**。
         ; 不用 `explorer.exe /n` —— 那会无视用户偏好强行开新窗口，用久了满屏资源管理器。
+        ; ⚠ 不要加 "Hide"：实测 Explorer 会以最小化窗口出现，后面的 WinRestore 不一定
+        ;   把它拉回来，表现成「按 Alt+1 没反应、只有一个最小化的资源管理器」。
+        ;   先用正常状态启动，再在 _ShowAndFocus 里隐藏态定位。
         try Run(path)
         catch as e {
             LogError("打开文件夹失败：" . path . " —— " . e.Message)
@@ -68,8 +70,7 @@ class FolderWindowFeature {
         while (A_TickCount < deadline) {
             hwnd := ExplorerProbe.FindFor(path)
             if hwnd {
-                this._ShowAndFocus(hwnd)
-                this._PlaceBySlot(slot, hwnd)
+                this._ShowAndFocus(hwnd, slot)
                 return
             }
             Sleep(this.PollInterval)
@@ -83,7 +84,18 @@ class FolderWindowFeature {
 
     ; ═══ 显示 / 隐藏 ═══
 
-    static _ShowAndFocus(hwnd) {
+    static _ShowAndFocus(hwnd, slot) {
+        ; 先在**隐藏态**算好落点，再让资源管理器露面。
+        ; 原来顺序是 WinShow → WinMove：Explorer 会先在默认位置 / 上次尺寸出现一帧，
+        ; 再被拖动到区域，用户看到的就是「工作区闪一下 + 位移动画」。
+        zone := FolderSlotService.GetZone(slot)
+        ; 已最小化的旧窗口先恢复成普通窗口，否则 Place 会返回 minimized，
+        ; 后面的 WinShow/WinRestore 也未必把它拉回来。
+        if DllCall("IsIconic", "ptr", hwnd, "int")
+            try DllCall("user32\ShowWindow", "ptr", hwnd, "int", 9)
+        try WinHide("ahk_id " . hwnd)
+        this._PlaceNow(hwnd, zone, true)
+
         ; ⚠ 三步都不能省：
         ;   WinShow     —— 从 WinHide 的隐藏态回来；
         ;   WinRestore  —— WinShow 不解除最小化，被藏过的窗口宿主可能已标成最小化，
@@ -94,6 +106,12 @@ class FolderWindowFeature {
         try WinShow("ahk_id " . hwnd)
         try WinRestore("ahk_id " . hwnd)
         try WinActivate("ahk_id " . hwnd)
+
+        ; 不在这里挂 Watch：先在隐藏态摆好，露面后再每 300/500ms 拖一次，
+        ; 就是用户看到的「频闪 + 位移动画」。偶发恢复尺寸交给
+        ; `Alt+Shift+V` 恢复布局或下一次呼出处理；用户明确要求「画好再出来」。
+        ; 即使这次没摆成也登记：恢复布局时会再试一次。
+        ZoneService.Register(hwnd, "file", zone, true)
     }
 
     static _Hide(hwnd) {
@@ -102,19 +120,8 @@ class FolderWindowFeature {
             LogError("隐藏文件夹窗口失败：" . e.Message)
     }
 
-    ; 按槽位配置把资源管理器窗口摆到区域（**填满**工作区，避免保留上次尺寸越区）。
-    ; ⚠ Explorer 会在露面后套用自己的位置/尺寸，第一次 WinMove 可能被它盖回去；
-    ;   8 秒内每 500ms 复核一次，窗口被收起 / 最小化就停止。
-    static _PlaceBySlot(slot, hwnd) {
-        zone := FolderSlotService.GetZone(slot)
-        this._PlaceNow(hwnd, zone)
-        ZoneService.Watch(hwnd, zone, true)
-        ; 即使这次没摆成也登记：恢复布局时会再试一次。
-        ZoneService.Register(hwnd, "file", zone, true)
-    }
-
-    static _PlaceNow(hwnd, zone) {
-        res := ZoneService.Place(hwnd, zone, {fill: true, allowHidden: false})
+    static _PlaceNow(hwnd, zone, allowHidden := false) {
+        res := ZoneService.Place(hwnd, zone, {fill: true, allowHidden: allowHidden})
         if !res.ok && res.reason != "not-placeable" && res.reason != "minimized" && res.reason != "no-zone"
             LogError("文件夹窗口落区失败：" . zone . " —— " . res.reason)
     }

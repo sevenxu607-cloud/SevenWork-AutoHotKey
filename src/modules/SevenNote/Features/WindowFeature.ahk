@@ -43,7 +43,14 @@ class WindowFeature {
         ;   用户连状态栏那行提示都看不见，下次打开还是旧内容。
         ;   recoverable = 当前没有可丢的内容（冷启动 / 页面还没挂），那种放行。
         saved := NoteSessionService.Save()
-        if !saved.ok && !(saved.HasProp("recoverable") && saved.recoverable)
+        if !saved.ok && !(saved.HasProp("recoverable") && saved.recoverable) {
+            reason := saved.HasProp("reason") ? saved.reason : "未知原因"
+            ; 收起失败不能静默 —— 用户会以为窗口坏了。
+            try ToolTip("笔记未能保存，窗口未关闭：" . reason)
+            SetTimer(() => ToolTip(), -5000)
+            return false
+        }
+        if !g
             return false
 
         ; 通知「即将收起」—— 保存已在上面做完，订阅者不用再存一次
@@ -51,9 +58,14 @@ class WindowFeature {
         ; ⚠ 必须显式传 hwnd：WebHostService 是多实例的（面板 / 提示词库 / 笔记窗各一份），
         ;   无参会落到「最近挂载的窗口」—— 收了笔记窗却把面板的入场状态复位掉，
         ;   两个窗口的动画从此互相干扰，而日志里一个字都不会有。
-        if g
+        try {
             WebHostService.Eval("window.__swfx&&window.__swfx.reset()", g.Hwnd)
-        g.Hide()
+            g.Hide()
+        } catch as e {
+            LogError("笔记窗口收起失败：" . e.Message)
+            return false
+        }
+        return true
     }
 
     ; ─── 呼出：记录区定位 → 激活 ───
