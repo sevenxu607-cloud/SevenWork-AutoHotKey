@@ -10,3 +10,6 @@ _spike/
 
 # 前端依赖（web/dist 入库，node_modules 不入库）
 web/node_modules/
+
+# 构建产物（portable ZIP / 编译后的 exe，不入库）
+dist/

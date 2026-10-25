@@ -13,7 +13,8 @@
 ![language](https://img.shields.io/badge/language-AutoHotkey%20v2-green)
 ![license](https://img.shields.io/badge/license-MIT-orange)
 
-> ⚠ **开发期项目，不是稳定发行版。** 分发包、WebView2 运行时打包、跨机器首次运行都**还没验收**。
+> ⚠ **开发期项目，不是稳定发行版。** portable 编译版已经可以构建；
+> 安装器、代码签名和**干净机器首次运行**还没验收。
 > 日常自用可以，给别人装机之前先读「已知限制」。
 
 ## 它解决什么问题
@@ -53,7 +54,28 @@
 4. 首次运行选择笔记目录
 5. 按 `Alt+Z`
 
+`Alt+M` 的文档转换是**可选功能**：需要机器上已有 Pandoc（放在
+`%AppData%\SevenWork\pandoc.exe` 或在 PATH 里）。没有 Pandoc 时只有这个功能不可用，
+启动、笔记、提示词、文件和三区域不受影响；发布包**不打包 Pandoc**。
+
 改前端（`web\src\`）之后要在 `web\` 下 `npm run build`，产物 `web\dist\` 已入库、AHK 从这里加载。
+
+### 构建 portable 版
+
+```powershell
+# 需要 Node.js + Ahk2Exe（默认从本机 AutoHotkey 安装目录找）
+powershell -NoProfile -ExecutionPolicy Bypass -File tools\build.ps1
+```
+
+产物在 `dist\SevenWork\`，并生成 `dist\SevenWork-<版本>-portable.zip`：
+
+```text
+SevenWork.exe
+WebView2Loader.dll
+web\dist\...
+LICENSE / README / THIRD-PARTY-NOTICES.txt
+BUILD.txt
+```
 
 ### 自动演示 / 验收录屏
 

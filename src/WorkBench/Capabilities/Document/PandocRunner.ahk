@@ -28,8 +28,8 @@
 ; ⚠ 反斜杠在 AHK 字符串里不是转义符（只有反引号是）。
 
 class PandocRunner {
-    ; 打包版 pandoc 约 150~230MB；小于 1MB 基本是 FileInstall 失败留下的 0KB / 半截文件。
-    ; 判据与 PandocService._IsValidPandoc 一致 —— 两边都踩过「0KB 坏 pandoc 挡住好 pandoc」。
+    ; 可选 sidecar 的合理性判据：真实 pandoc 约 150~230MB；小于 1MB 基本是
+    ; 下载中断 / FileInstall 失败留下的 0KB 或半截文件。
     static MinExeSize := 1048576
 
     ; ═══ 定位 ═══
@@ -40,6 +40,17 @@ class PandocRunner {
         if this.IsUsableExe(preferredPath)
             return '"' . preferredPath . '"'
         return "pandoc.exe"
+    }
+
+    ; 功能层在开始转换前先问一次：没装 pandoc 时不要启动 RunWait。
+    ; 先支持用户指定的 sidecar；再退回 PATH 测试 --version。
+    static IsAvailable(preferredPath := "") {
+        if this.IsUsableExe(preferredPath)
+            return true
+        try code := RunWait("pandoc.exe --version", , "Hide")
+        catch
+            return false
+        return code = 0
     }
 
     static IsUsableExe(path) {

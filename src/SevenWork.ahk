@@ -343,34 +343,31 @@ MigrateLegacyAppData() {
     newMode := Config.AppDataDir . "\_deepseek.mode"
     if !FileExist(newMode) && FileExist(oldMode)
         try FileCopy(oldMode, newMode, false)
-
-    ; pandoc 也是跨版本共用的独立目录；旧文件存在就不必重新解包
-    oldPandoc := A_AppData . "\SevenNote\pandoc.exe"
-    if !FileExist(Config.PandocPath) && FileExist(oldPandoc)
-        try FileCopy(oldPandoc, Config.PandocPath, false)
 }
 
 ; ═══ 确保 AppData 目录存在 ═══
 DirCreate(Config.AppDataDir)
+
+; WebView2 是硬运行时依赖，不是 AHK 能替代的；先把「缺 runtime」说清楚，
+; 不要让用户只看到笔记 / 面板一片纯底色。
+if !WebHostService.RuntimeAvailable() {
+    MsgBox("SevenWork 需要 Microsoft Edge WebView2 Runtime。`n`n"
+        . "请安装 WebView2 Runtime 后重新启动。`n"
+        . "Win11 通常自带；Win10 可从 Microsoft Edge WebView2 官网下载。"
+        , "SevenWork", "Icon!")
+    ExitApp(1)
+}
 
 ; ═══ Phase 6：迁移旧版 SevenNote-Dev 数据 ═══
 ; 只在新路径缺失时复制，旧目录保留；DeepSeek profile 约 950MB，
 ; 首次升级启动会多花几秒，之后各路径已存在就直接跳过。
 MigrateLegacyAppData()
 
-; ═══ 打包 pandoc.exe（v1.9 修复）═══
-; 【关键修复】
-;   · FileInstall 必须一行，不能折行（否则 Ahk2Exe 可能打包空文件）
-;   · 第二参数用展开的表达式，不用类属性
-;   · 释放前先删旧文件（避免 0KB 坏文件阻塞后续释放）
-;   · 只在文件不存在或 < 1MB 时才释放
-; ⚠ 编译前把下面的源路径改成你本机 pandoc.exe 的实际路径
-; ⚠ 编译时务必确认源文件是 100+ MB 的 x86_64 版 pandoc
-if !FileExist(Config.PandocPath) || FileGetSize(Config.PandocPath) < 1048576 {
-    try FileDelete(Config.PandocPath)
-    FileInstall "C:\Users\Seven\AppData\Local\Pandoc\pandoc.exe", A_AppData . "\SevenWork\pandoc.exe", 1
-}
-
+; ═══ Pandoc 是可选功能依赖 ═══
+; 不在这里 FileInstall：编译器会把 150~230MB 的二进制塞进 exe，而且源路径必须
+; 是构建机专属路径，换机器就无法复现。Alt+M 在文件转换功能里按需探测，
+; 缺失时明确提示，不影响启动和笔记。
+;
 ; ═══ 配置服务初始化 ═══
 ConfigService.Init(Config.ConfigPath)
 ConfigService.SetDefault("Appearance", "ThemeIndex", "1")

@@ -9,10 +9,11 @@
 
 ## 当前焦点
 
-七个核心应用与三区域已完成并验证；WebView2 窗口激活 / 关闭骨架与演示录制链路
-已修完 `Alt+S` → 笔记 → 提示词 → 文件 → Obsidian → 视界 → 退出 的全流程可自动跑通。
-剩**管理页保存手验**与目视观感；一键启动 / 自定义布局按用户决定暂缓，
-视界页只保留说明与 `Alt+Shift+V`。
+七个核心应用与三区域已完成并验证；演示录制链路可自动跑通。
+**2026-10-25 起转为 portable 编译分发**：`tools\build.ps1` 已能生成
+exe + `web\dist` + `WebView2Loader.dll` 的 staging / ZIP；Pandoc 已从启动
+`FileInstall` 降级为 `Alt+M` 的可选 sidecar。
+剩**管理页保存手验**、干净机器验收、安装器 / 签名；一键启动 / 自定义布局暂缓。
 
 ## 已完成（括号内是验证范围）
 
@@ -94,6 +95,21 @@ Esc、日期窗开/关、提示词新建/关闭、`Alt+Shift+S` 退出）通过�
 - **亮度对照已实测**：OBS profile `ColorRange=Partial` 的旧视频抽帧平均约 76；
   改 Full 后约 114（`yuvj420p(pc)`）。本地素材建议 Full；浅色壁纸只改注册表
   会被 Windows 自定义主题覆盖，未把系统壁纸改动留在机器上。
+
+### 2026-10-25 portable 编译版
+
+- 新增 `tools/build.ps1`：固定 Ahk2Exe 64 位编译，产出
+  `dist\SevenWork\SevenWork.exe`、`web\dist`、`WebView2Loader.dll`、
+  许可/构建信息与 portable ZIP。
+- Pandoc 降级为可选：删除启动时的 `FileInstall` 与旧 pandoc 迁移复制；
+  `Alt+M` 缺失时提示「未检测到 Pandoc」，不再尝试启动 `RunWait`；
+  正式包不打包二进制。
+- `WebHostService` 编译版显式加载 exe 同级的 `WebView2Loader.dll`；
+  启动时增加 WebView2 Runtime 注册表探测，缺失给明确安装提示。
+- 实测：编译版 exe 约 1.5MB，staging `web/dist` 约 632KB；启动后
+  `Alt+S` 能打开面板、`Alt+Shift+S` 正常退出；AHK 109 + web 17 全绿。
+- 仍需：干净机器（无 AHK/Node/Pandoc/WebView2）验收、Inno Setup / 签名、
+  运行时缺失时的引导安装、WebView2Loader 的跨机器验证。
 
 ### 此前几轮（细节见 `git log`，只留仍需知道的范围）
 

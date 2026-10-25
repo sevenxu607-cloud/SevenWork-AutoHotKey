@@ -119,6 +119,8 @@ class ConvertFeature {
             return "已存在同名 .md，跳过（不覆盖）`n要重转请先删掉旧的"
         if (reason = "no-extension")
             return "文件没有扩展名，pandoc 认不出格式"
+        if (reason = "pandoc-missing")
+            return "未检测到 Pandoc，文档转换是可选功能`n安装 Pandoc 后重试；核心笔记功能不受影响"
         return "跳过：文件不可用"
     }
 

@@ -65,7 +65,13 @@ class WebHostService {
         ;   谁该关由它的主人（模块 / 平台界面）自己决定。
 
         try {
-            ctrl := WebView2.CreateControllerAsync(hwnd, 0, dataDir || (EnvGet("LOCALAPPDATA") . "\SevenWork\WebView2")).await()
+            ; 编译版把 WebView2Loader.dll 放在 exe 同级；开发态没有这个文件时
+            ; 交回库的默认查找（src\lib\WebView2\64bit\WebView2Loader.dll）。
+            loader := A_ScriptDir . "\WebView2Loader.dll"
+            if !FileExist(loader)
+                loader := "WebView2Loader.dll"
+            ctrl := WebView2.CreateControllerAsync(hwnd, 0
+                , dataDir || (EnvGet("LOCALAPPDATA") . "\SevenWork\WebView2"), "", loader).await()
         } catch as e {
             return {ok: false, reason: "创建 WebView2 失败: " . e.Message}
         }
@@ -213,6 +219,24 @@ class WebHostService {
 
     static IsReady(hwnd := 0) {
         return IsObject(this._Slot(hwnd))
+    }
+
+    ; WebView2 Runtime 不在 exe 里：Win11 通常自带，Win10 可能缺失。
+    ; 启动时先问一次，避免用户看到「窗口出来了但编辑区一片纯底色」。
+    static RuntimeAvailable() {
+        keys := [
+            "HKCU\Software\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}",
+            "HKLM\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}",
+            "HKLM\SOFTWARE\Microsoft\EdgeUpdate\Clients\{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
+        ]
+        for key in keys {
+            try {
+                if (RegRead(key, "pv") != "")
+                    return true
+            } catch {
+            }
+        }
+        return false
     }
 
     ; ─── 前端产物目录 ─────────────────────────────────────────────────

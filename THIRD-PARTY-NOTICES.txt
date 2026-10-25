@@ -1,0 +1,22 @@
+SevenWork is licensed under the MIT License (see LICENSE).
+
+Runtime and build-time components:
+
+- AutoHotkey v2
+  https://www.autohotkey.com/
+- Microsoft Edge WebView2
+  https://learn.microsoft.com/microsoft-edge/webview2/
+- Vue 3
+  https://github.com/vuejs/core
+- Milkdown
+  https://github.com/Milkdown/milkdown
+
+Optional external tool (not bundled, not required to run SevenWork):
+
+- Pandoc
+  https://pandoc.org/
+  The optional Alt+M file conversion feature looks for pandoc.exe in
+  %AppData%\SevenWork or on PATH. If you redistribute Pandoc, review its
+  license and attribution requirements first.
+
+This file is informational; upstream license texts remain authoritative.

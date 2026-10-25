@@ -40,6 +40,14 @@ class FileConvertService {
         if !IsObject(paths) || paths.Length = 0
             return result
 
+        ; Pandoc 是可选 sidecar：核心应用不依赖它。没装时把每个选中项标记为
+        ; skipped（不写文件、不启动 RunWait），由 ConvertFeature 给人话提示。
+        if !PandocRunner.IsAvailable(Config.PandocPath) {
+            for src in paths
+                result.skipped.Push({path: src, reason: "pandoc-missing"})
+            return result
+        }
+
         cmd := PandocRunner.ResolveCmd(Config.PandocPath)
 
         for src in paths {

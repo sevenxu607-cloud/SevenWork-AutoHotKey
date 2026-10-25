@@ -22,7 +22,8 @@
 | 7 资料怎么记 | 四份资料的分工 | 收尾 |
 | 8 平台能力契约 | Capability 只收什么、失败怎么返回 | 新增能力 |
 | 9 已经算过账的方向 | 别再重新论证的清单 | 想推翻某个设计之前 |
-| 10 演示与录屏 | 外部驱动、OBS 双显卡、分章文件 | 做验收视频 / 自动化演示 |
+| 10 编译与分发 | Ahk2Exe、loader、dist、可选 Pandoc | 打包 / 编译 / 发布 |
+| 11 演示与录屏 | 外部驱动、OBS 双显卡、分章文件 | 做验收视频 / 自动化演示 |
 
 ---
 
@@ -302,7 +303,22 @@
 | 所有窗口强制填满区域 | **例外已收窄（2026-10-24）**：终端高度归 Windows Terminal profile、浏览器会被 Edge 的 `--window-size` 吸附 —— 这两类保持锚定；**文件 / 应用槽位反过来必须填满 + 300/900/1600ms 复核**，否则它们会恢复上次尺寸、越区或向上漂移（Everything / Explorer 已实测稳定） |
 | 一键启动（暂缓，不是否掉） | 串行启动会占住热键线程（终端 15s、浏览器 15s）；先要解决异步模型，否则一按 Alt+V 十几秒没反应 |
 
-## 10. 演示与录屏
+## 10. 编译与分发
+
+- **Ahk2Exe 编译根启动器可行**：先编译仓库根 `SevenWork.ahk`（它 `#Include src\SevenWork.ahk`），
+  而不是只编译 `src` 入口；产物 `SevenWork.exe` 约 1.5MB。
+- **编译版显式找 loader**：`WebHostService.Mount` 先找 `A_ScriptDir\WebView2Loader.dll`，
+  找不到才回退库的 `src\lib\WebView2\64bit` 路径；发布 staging 必须把 loader 放在 exe 同级。
+- **`web/dist` 放 exe 同级 `web\dist`**：`WebHostService.DistDir()` 已支持；不要把整棵
+  `web/dist` 塞进 `FileInstall`。
+- **Pandoc 不要 FileInstall**：150~230MB、构建机路径、GPL 分发义务都不划算；
+  它只服务 `Alt+M`，按需探测 Path / sidecar 即可，缺失时明确降级。
+- **WebView2 Runtime 是硬依赖**：检查 `EdgeUpdate\Clients\{F3017226-...}` 的 `pv`；
+  loader 不是 runtime，二者别混。Win11 通常自带，Win10 需要用户安装。
+- **编译版 smoke 必测**：启动 compiled exe → `Alt+S` 面板 → `Alt+Shift+S` 退出；
+  验证 `web/dist`、loader、运行时探测都真的在 exe 环境生效。**已实测（2026-10-25）**。
+
+## 11. 演示与录屏
 
 - **双显卡笔记本上，OBS 跑在独显会录出黑屏**：本机 RTX 4060 + Intel UHD，
   `monitor_capture` 选到 2560×1600 显示器仍 `sourceWidth=0`，截图纯白 / 视频纯黑。
