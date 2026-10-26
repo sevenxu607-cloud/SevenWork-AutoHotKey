@@ -87,7 +87,8 @@ class WebPanelUI {
             view:     "panel",
             dataDir:  "panel",
             handlers: PanelHostHandlers,
-            place:    "center",
+            ; 面板靠左落在工作区，不再居中压到右侧的笔记 / 终端区域。
+            place:    "left",
             ; 管理面板是「会停留操作」的窗口：允许最小化到任务栏，
             ; 而 Esc / × 仍然是隐藏（不退出程序）—— 两者语义不同，别合并。
             minimizeBox: true,

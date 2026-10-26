@@ -333,10 +333,22 @@ class WebWindow {
     ; 摆位：center    = 主屏工作区居中偏上（不写死坐标，换显示器 / 改分辨率都不用改代码）
     ;       topright  = 工作区右上角，右边距 Config.PlaceRight、顶边下移 _placeTop
     ;       zone      = 指定区域（_zone）的中心；比区域宽时向左溢出，再夹到工作区
+    ;       left      = 工作区左上角，保留窗口自身尺寸（管理面板用）
     ;       其它      = 交给窗口系统
     _Place() {
-        if (this._placeMode != "center" && this._placeMode != "topright" && this._placeMode != "zone")
+        if (this._placeMode != "center" && this._placeMode != "topright"
+            && this._placeMode != "zone" && this._placeMode != "left")
             return
+
+        ; left：管理面板初始落在工作区左上角，保留面板自身的宽高，不填满工作区；
+        ; 右侧记录区 / 辅助区留给笔记和终端，三者不互相覆盖。
+        if (this._placeMode = "left") {
+            res := ZoneService.Place(this._hwnd, "work", {fill: false, allowHidden: true})
+            if res.ok
+                return
+            ; 小屏 / 区域不可用时继续走 center 兜底，至少窗口在屏幕内。
+        }
+
         rect := WindowProbe.PrimaryWorkArea()
         if !IsObject(rect)
             return
