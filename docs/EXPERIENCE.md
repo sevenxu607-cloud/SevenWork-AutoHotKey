@@ -114,9 +114,26 @@
   恢复，表现为越区或向上漂移。`fill:true` + 8 秒内每 500ms 复核后：
   Obsidian 外框 `10,10,1757,1590`（2/5/9 秒三次一致）；Everything 在辅助区时
   `1772,580,774,1021`。终端 / 浏览器例外：高度归 WT profile、宽度被 Edge 吸附，仍用锚定。
-- **应用槽位找主窗口**：按 exe 文件名取「可见 + 未最小化 + 有标题」里面积最大的那个；
-  Everything 的搜索窗 / Obsidian 的弹窗 / Chromium 辅助窗都可能排在主窗口前面。
+- **应用槽位找主窗口（2026-10-26 修正）**：按 exe 文件名分三级取 ——
+  ① 可见 + 未最小化 + 有标题 + 尺寸正常；② 最小化 + 有标题 + 还原尺寸正常；
+  ③ 收起（隐藏）+ 有标题 + 非辅助窗类。Everything 的搜索窗 / Obsidian 的弹窗 /
+  Chromium 辅助窗都可能排在主窗口前面，所以按面积取最大，并排除
+  `Chrome_WidgetWin_0` / `Base_PowerMessageWindow` / `IME` 这类辅助窗。
+  **已实测（本机 Obsidian 1.13.7）**：最小化时主窗 `Chrome_WidgetWin_1` 的
+  `IsIconic=1`、`WinGetPos` 是 `-21333,-21333,158x26`（停放位 + 退化尺寸），
+  旧逻辑（只认可见 + 未最小化）因此认不到窗口 → `Run` → 单实例程序**新开一扇窗**，
+  表现就是「不是呼出，而是又多一个进程」。⚠ 最小化 / 隐藏的窗口量不到当前尺寸，
+  要读 `GetWindowPlacement` 的 `rcNormalPosition` 判断「是不是正常大小」。
+- **恢复最小化要 `ShowWindow(SW_RESTORE)` 并等它真的退出最小化**：`ShowWindow` 是异步的
+  （本机 300ms 后才 `IsIconic=0`）。这期间 `PlacementExecutor` 判 `minimized` 直接放弃、
+  `ZoneService.Watch` 的第一轮复核也会因此停掉 → 窗口回来了但停在它自己记住的位置。
+  写法：`WinShow` → 若 `IsIconic` 则 `ShowWindow(9)` → 轮询到「可见且未最小化」再 `Place`。
   冷启动等待放宽到 15 秒（Obsidian 比 Everything 慢）。
+- **改 `%AppData%\SevenWork\_config.ini` 必须保留 UTF-16 LE + BOM**：该文件是 `FF FE` 开头的
+  UTF-16；用「UTF-8 无 BOM」重写后 `IniRead` 读出的中文 `Vault` 路径变乱码 →
+  启动走「首次运行选目录」分支、`DirCreate` 报 `(123) 文件名、目录名或卷标语法不正确`，
+  而且**热键注册根本没执行到**（表现成「热键全没反应」）。要改就用
+  `[Text.UnicodeEncoding]::new($false, $true)` 写回，或只改字节、整文件保留。
 - **原生 Button 在深色窗口上是白底**：标签对话框改用 `Text + SS_NOTIFY`（`+0x300`
   含垂直居中），继承窗口底色；点击「取消」实测窗口关闭（`after=0`）。
   Enter / NumpadEnter 另用 `HotIfWinActive + Hotkey`（Text 不是默认按钮）。

@@ -17,6 +17,21 @@ exe + `web\dist` + `WebView2Loader.dll` 的 staging / ZIP；Pandoc 已从启动
 
 ## 已完成（括号内是验证范围）
 
+### 2026-10-26 应用槽位唤回修复
+
+- **最小化 / 收起的应用能被唤回**：`AppSlotFeature._FindWindow` 改为三级取主窗
+  （显示 → 最小化 → 收起），不再把 `IsIconic` / 隐藏的窗口一律跳过。旧逻辑跳过它们
+  就找不到窗口 → 走 `Run(cmd)` → 单实例程序（Obsidian）**新开一扇窗**，用户看到的就是
+  「不是呼出，而是又多一个进程」。
+  （实测：Obsidian 最小化时主窗 `iconic=1`、`WinGetPos` 为 `-21333,-21333,158x26`；
+  修复后按 `Alt+Shift+2`，测试窗口 `iconic` 由 1 变 0、进程数不变）
+- **恢复最小化后等就绪再落区**：`WinShow` → 若 `IsIconic` 则 `ShowWindow(SW_RESTORE)` →
+  轮询到「可见且未最小化」→ `Place`。否则 `PlacementExecutor` 判 `minimized` 直接放弃、
+  `ZoneService.Watch` 第一轮复核也会因此停掉。（实测 `ShowWindow` 后约 300ms 才 `iconic=0`）
+- 验证范围：AHK 109 + web 17 全绿；类体语法探针通过，造错时 `(182) Missing operand`
+  且退出码非 0（反向验证）；真机启动 stderr 空；诊断日志确认 `_FindWindow` 命中最小化
+  窗口、`Place ok=1`。**最终落区像素未在用户真实 Obsidian 上复验**（避免反复启动用户程序）。
+
 ### 本轮（2026-10-24 区域化）
 
 - **命名统一**：笔记 / 文本 / 文件 / 应用 / 视界 / 按键 / 主题；`Id`、目录与事件名不动。
@@ -126,11 +141,11 @@ Esc、日期窗开/关、提示词新建/关闭、`Alt+Shift+S` 退出）通过�
 | **同区多窗口重叠** | 区域只保证「落到哪块」。终端与浏览器都落辅助区；恢复布局会把它们叠在一起，不做堆叠 |
 | **日期选择 / 面板保存未手验** | 演示已验证 `Ctrl+G` 能打开日期框；选中日期后的跳转、管理页保存结果仍需真机确认 |
 | **OBS 录制依赖集显** | 本机独显上 `monitor_capture` 黑屏；已在 Windows 图形设置为 OBS 指定省电 / 集显。换机 / 重启后要复查 |
-| **应用槽位残留空白窗** | 旧逻辑已可能 `WinShow` 出 Obsidian 等程序的空白合成窗；本轮停止再选这类句柄，旧实例残留需重启对应程序清掉 |
+| **应用槽位残留空白窗** | 已修（2026-10-26）：只认「有标题 + 非辅助窗类 + 还原尺寸正常」的句柄，`Chrome_WidgetWin_0` / `Base_PowerMessageWindow` / IME 一律排除；旧实例遗留的空白窗仍需重启对应程序清掉 |
 | **辅助区高度 1020** | 未真机验证 Windows Terminal 会不会按 profile 弹回；终端目前只锚定位置、不改高度 |
 | **最大化窗口落区** | `PlacementExecutor` 已补 `IsZoomed → ShowWindow(SW_RESTORE)`，**未真机验** |
 | **`Alt+Shift+1/2/3`** | 未手按验证输入法 / 驱动是否拦截；`Alt+Shift+V` 同理 |
-| **应用槽位认窗** | 按 exe 文件名；多实例只取第一个，UWP / `cmd /c start` / 提权窗口不支持 |
+| **应用槽位认窗** | 按 exe 文件名；取面积最大的主窗；最小化 / 收起的能唤回；多实例仍只取一扇，UWP / `cmd /c start` / 提权窗口不支持 |
 | **主脚本 include 完整性** | 单测 include ≠ 生产 include：`CommandLine` 漏过一次；新增能力后要检查 `src\SevenWork.ahk` |
 | **提示词白屏** | 已确认页面加载正常（`__swprompt` 存在、正文 105 字）；旧版是 WebView2 子窗口不可见。新代码 `promptVisible=1`，待用户重启目视 |
 | **旧配置项** | `[Paths] DeepSeekW/H` 不再读取；`[Folders]` / `[Apps]` 新增 `SlotNZone`，缺省分别工作区 / 辅助区 |
@@ -150,6 +165,7 @@ Esc、日期窗开/关、提示词新建/关闭、`Alt+Shift+S` 退出）通过�
 
 1. 重启后手按 `Alt+P` / `Ctrl+G` / `Ctrl+Shift+T`：提示词库与日期框应填满辅助区、
    标签窗居中记录区且内容正常；按 `Alt+1/2/3` 看文件夹是否还漂移。
-2. 手按 `Alt+Shift+1`（Everything）/ `2`（Obsidian）：应用应启动 / 唤出并落工作区。
+2. 手按 `Alt+Shift+1`：Obsidian **最小化之后**再按一次，应当被唤回并落工作区
+   （不再新开窗口 / 新进程）；再按一次应把它收起。
 3. 换小屏 / 换缩放验辅助区高度与最大化窗口落区。
 4. 一键启动若要落地，先解决异步启动模型（串行会占住热键线程）。
