@@ -4,7 +4,7 @@
 
 class Config {
     static AppName := "SevenWork"
-    static Version := "2.14"
+    static Version := "2.15"
 
     ; ═══ 落点：一个目录、一份配置、一处日志（v2.14 起取消「开发身份」）═══
     ; 曾经用工作树根的 `_dev.flag` 区分开发 / 日用：开发走 `SevenWork-Dev` 配置、

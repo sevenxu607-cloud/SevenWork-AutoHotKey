@@ -8,7 +8,7 @@
 后台是 AutoHotkey v2（管窗口、热键、磁盘、进程），前台是 WebView2 里的 Vue + Milkdown。
 **记下来的东西都是普通文件**：笔记就是 `.md`，直接落在你自己的 Obsidian 库里。
 
-![version](https://img.shields.io/badge/version-2.14-blue)
+![version](https://img.shields.io/badge/version-2.15-blue)
 ![platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-lightgrey)
 ![language](https://img.shields.io/badge/language-AutoHotkey%20v2-green)
 ![license](https://img.shields.io/badge/license-MIT-orange)
