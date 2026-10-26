@@ -78,11 +78,29 @@ function Ensure-Obs {
 }
 
 function Stop-Obsidian {
+    # Graceful first, then kill the whole Electron tree. A bare Stop-Process on
+    # the parent can leave renderer children with no window, and those children
+    # keep the Obsidian single-instance lock forever.
     Get-Process Obsidian -ErrorAction SilentlyContinue | ForEach-Object {
         $_.CloseMainWindow() | Out-Null
     }
     Start-Sleep -Seconds 2
+    $procs = @(Get-Process Obsidian -ErrorAction SilentlyContinue)
+    foreach ($p in $procs) {
+        try {
+            & "$env:SystemRoot\System32\taskkill.exe" /PID $p.Id /T /F 2>$null | Out-Null
+        } catch {}
+    }
+    Start-Sleep -Seconds 2
     Get-Process Obsidian -ErrorAction SilentlyContinue | Stop-Process -Force -ErrorAction SilentlyContinue
+    Start-Sleep -Seconds 1
+
+    # Remove a stale lock only after the process tree is gone. Never delete it
+    # while an Obsidian process is still alive.
+    $lock = Join-Path $env:APPDATA 'obsidian\lockfile'
+    if ((Test-Path -LiteralPath $lock) -and -not (Get-Process Obsidian -ErrorAction SilentlyContinue)) {
+        Remove-Item -LiteralPath $lock -Force -ErrorAction SilentlyContinue
+    }
 }
 
 function Register-DemoObsidianVault([string]$vaultPath) {
