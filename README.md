@@ -77,7 +77,7 @@ LICENSE / README / THIRD-PARTY-NOTICES.txt
 BUILD.txt
 ```
 
-已发布：[SevenWork v2.15-portable](https://github.com/sevenxu607-cloud/SevenWork-AutoHotKey/releases/tag/v2.15-portable)
+已发布：[SevenWork v2.17-portable](https://github.com/sevenxu607-cloud/SevenWork-AutoHotKey/releases/tag/v2.17-portable)
 
 ### 第一次运行被拦下（SmartScreen）
 
