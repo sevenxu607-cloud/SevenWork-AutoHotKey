@@ -8,7 +8,7 @@
 后台是 AutoHotkey v2（管窗口、热键、磁盘、进程），前台是 WebView2 里的 Vue + Milkdown。
 **记下来的东西都是普通文件**：笔记就是 `.md`，直接落在你自己的 Obsidian 库里。
 
-![version](https://img.shields.io/badge/version-2.15-blue)
+![version](https://img.shields.io/badge/version-2.17-blue)
 ![platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-lightgrey)
 ![language](https://img.shields.io/badge/language-AutoHotkey%20v2-green)
 ![license](https://img.shields.io/badge/license-MIT-orange)
@@ -78,6 +78,43 @@ BUILD.txt
 ```
 
 已发布：[SevenWork v2.15-portable](https://github.com/sevenxu607-cloud/SevenWork-AutoHotKey/releases/tag/v2.15-portable)
+
+### 第一次运行被拦下（SmartScreen）
+
+发布包**没有代码签名**，所以换一台机器首次运行 `SevenWork.exe` 时，Windows 可能弹出
+「Windows 已保护你的电脑 —— Microsoft Defender SmartScreen 阻止了无法识别的应用启动」。
+拦截依据是**无签名 + 无下载声誉**，与文件是否损坏、是否用压缩壳无关；
+**重新编译不会让它消失**（2026-10-28 实测：本机未打包、无下载标记的产物同样会被拦）。
+
+- 单次放行：点「更多信息」→「仍要运行」；
+- 整包放行：先对下载到的 **zip** 右键 →「属性」→ 勾「解除锁定」→ 确定，再解压；
+  已经解压过的，对 `SevenWork.exe` 做同样操作即可，也可在 PowerShell 里
+  `Get-ChildItem . -Recurse | Unblock-File`；
+- 校验完整性：`Get-FileHash SevenWork.exe -Algorithm SHA256`，与包内 `BUILD.txt`
+  的 `sha256=` 一行比对，一致说明文件没被动过；
+- 根治只能靠代码签名（EV 证书），见 [`docs/INTENT.md`](docs/INTENT.md) 的「还没定」。
+
+构建脚本**不加任何压缩参数**：本机实测 `Ahk2Exe` 的 `/compress 1` / `/compress 2`
+与不传一样，产物都是 1,523,200 字节，对 SmartScreen 也没有影响 —— 拦截只看签名与声誉，
+**重编译不会改变结果**。
+
+### 程序起来了，但里面什么都没有
+
+如果双击后**进程确实在跑**（任务管理器里能看到 `SevenWork.exe`），却没有窗口内容、
+`%AppData%\SevenWork\_error.log` 也一条都不写 —— 先查项目目录的**完整性标签**。
+放在 Low 完整性目录里的 exe 会以低权限启动，写不了 `%AppData%`，于是日志与 WebView2
+全部**静默失败**（WebView2 会报 `0x800700AA 请求的资源在使用中`）。
+
+```powershell
+# 出现 "Low Mandatory Level" 就是它
+icacls <项目目录> | Select-String 'Mandatory Label'
+
+# 修复（需要管理员；普通用户会「拒绝访问」）
+icacls <项目目录> /setintegritylevel (OI)(CI)Medium /T
+```
+
+判断依据不是「重新编译」也不是「换路径」，而是**目录本身的标签**：同样的 exe 复制到
+普通目录就正常。详见 [`docs/EXPERIENCE.md`](docs/EXPERIENCE.md) 第 10 节。
 
 ### 自动演示 / 验收录屏
 

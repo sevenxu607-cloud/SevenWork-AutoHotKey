@@ -70,11 +70,15 @@ if (Test-Path -LiteralPath $stage) { Remove-Item -LiteralPath $stage -Recurse -F
 New-Item -ItemType Directory -Force -Path $stage | Out-Null
 
 $exe = Join-Path $stage 'SevenWork.exe'
+# Do NOT pass /compress. Measured 2026-10-28 on this machine: /compress 1 and
+# /compress 2 both produced the exact same 1,523,200-byte exe as passing no
+# flag at all (AutoHotkey v2 x64 base). It buys nothing and only adds a knob
+# that looks like it matters. SmartScreen blocks the unsigned exe either way;
+# the fix for that is code signing, not recompiling.
 $compileArgs = @(
     '/in', ('"' + $source + '"'),
     '/out', ('"' + $exe + '"'),
     '/base', ('"' + $ahkBase + '"'),
-    '/compress', '2',
     '/silent'
 )
 $proc = Start-Process -FilePath $ahk2exe -ArgumentList $compileArgs -Wait -PassThru -NoNewWindow
@@ -94,13 +98,16 @@ if (Test-Path -LiteralPath $notices) {
     Copy-Item -LiteralPath $notices -Destination (Join-Path $stage 'THIRD-PARTY-NOTICES.txt') -Force
 }
 
+$sha = (Get-FileHash -LiteralPath $exe -Algorithm SHA256).Hash
 $buildInfo = @(
     "version=$version",
     "commit=$commit",
     "built=$((Get-Date).ToString('yyyy-MM-dd HH:mm:ss'))",
     "runtime=AutoHotkey v2 x64",
     "web=web/dist",
-    "pandoc=optional (not bundled)"
+    "pandoc=optional (not bundled)",
+    "sha256=$sha",
+    "signed=no (SmartScreen may block the first run: More info -> Run anyway)"
 ) -join "`r`n"
 [IO.File]::WriteAllText((Join-Path $stage 'BUILD.txt'), $buildInfo, [Text.UTF8Encoding]::new($false))
 

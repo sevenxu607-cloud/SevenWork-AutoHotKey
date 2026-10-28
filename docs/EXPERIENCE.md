@@ -334,6 +334,34 @@
   loader 不是 runtime，二者别混。Win11 通常自带，Win10 需要用户安装。
 - **编译版 smoke 必测**：启动 compiled exe → `Alt+S` 面板 → `Alt+Shift+S` 退出；
   验证 `web/dist`、loader、运行时探测都真的在 exe 环境生效。**已实测（2026-10-25）**。
+- **`Ahk2Exe /compress 1|2` 对 v2 x64 base 无效**：2026-10-28 实测三种写法（不传 / 1 / 2），
+  产物都是 **1,523,200 字节**，差异只来自脚本内容。别再指望「去掉压缩壳能降误报」。
+- **未签名的 exe 即使没有 MOTW 也会被拦**：本机编译、`Zone.Identifier` 不存在的
+  `SevenWork.exe`，照样弹「打开文件 - 安全警告：无法验证发布者」或 SmartScreen 蓝色拦截。
+  判定依据是**签名 + 声誉**，与文件损坏、压缩壳、编译方式无关 → **重编译不解决**；
+  而且每次重编哈希都变，用户点过的「运行」记录随之失效、提示重来。
+  根治只有代码签名；日常自用直接双击源码 `SevenWork.ahk`，编译版留给没装 AHK 的机器。
+- **`Start-Process` 启动未签名 exe 会被安全警告卡住**：它走 ShellExecute，弹框时调用不返回
+  （命令看起来像卡死）。自动化验收改用
+  `New-Object System.Diagnostics.ProcessStartInfo` + `UseShellExecute = $false` 直接 CreateProcess。**已实测（2026-10-28）**。
+- **目录带 Low 完整性标签会把编译版进程降权 → 一切「静默」**（2026-10-28 实测）。
+  仓库原在 `D:\...\02-GitHubFiles\` 下，该层被显式设成 `Mandatory Label\Low Mandatory Level`
+  （`icacls` 可见；没有 `(I)` 表示在本层设置，其余子项全是继承）。exe 继承该标签后
+  `CreateProcess` 以 **Low IL** 启动（实测 4096；同一份代码用解释器跑是 8192/Medium）→
+  **写 `%AppData%` / `%LocalAppData%` 全被拒**，于是同时出现三个「查不到原因」的症状：
+  · `_error.log` 一条不写（`LogError` 自己被拒，静默失败）→ 表现为「无日志、无报错」；
+  · WebView2 创建返回 `0x800700AA 请求的资源在使用中`（真实原因是 profile 写不进去）→
+    表现为「进程在、0 个 WebView2 子进程、窗口空白」；
+  · 源码版**完全正常**（进程 IL 由 `AutoHotkey64.exe` 决定，与脚本文件标签无关）。
+  **判断**：`icacls <目录>` 看 `Mandatory Label`；`Get-Process` 读不到 IL，要用
+  `OpenProcessToken` + `GetTokenInformation(TokenIntegrityLevel=25)` 取 RID
+  （4096=Low / 8192=Medium / 12288=High）。
+  **修复**：管理员执行 `icacls <目录> /setintegritylevel (OI)(CI)Medium /T`
+  —— 普通用户会报「拒绝访问」（需要 `SeRelabelPrivilege`）。
+  ⚠ **只改单个 exe 不够**：父目录标签还在，下次构建的新 exe 会重新继承。
+  ⚠ **只改项目紧邻的那层也不够**：`02-GitHubFiles` 这种「容器目录」自己带标签时，
+  在它下面**直接新建**的项目会重新继承 —— 把容器层一起改掉才算收口（2026-10-28 实测）。
+  ⚠ 这解释了「换个目录放项目后编译版就废了」：问题不在路径本身，而在新目录的完整性标签。
 
 ## 11. 演示与录屏
 

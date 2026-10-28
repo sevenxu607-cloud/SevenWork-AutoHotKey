@@ -3,7 +3,7 @@
 > **覆盖式更新**：每次会话结束改这一份，不追加流水、不留历史版本（历史在 Git）。
 > 新会话先读这里，再核对代码与 `git log` —— 这张卡是**起点，不是真理**。
 >
-> 更新于 `2026-10-24`　基线提交 `989a746`（七个核心应用 + 三区域；本轮窗口稳定性修复见下）
+> 更新于 `2026-10-28`　基线提交 `360b225`（版本 2.17；分发提示与打包校验见下）
 
 ---
 
@@ -14,8 +14,50 @@
 exe + `web\dist` + `WebView2Loader.dll` 的 staging / ZIP；Pandoc 已从启动
 `FileInstall` 降级为 `Alt+M` 的可选 sidecar。
 剩**管理页保存手验**、干净机器验收、安装器 / 签名；一键启动 / 自定义布局暂缓。
+**2026-10-28**：编译版一度「进程在、却无窗口内容且无日志」，已定位为项目目录的
+**Low 完整性标签**（进程被降权，写不了 AppData），管理员改回 Medium 后恢复；版本号升到 2.17。
 
 ## 已完成（括号内是验证范围）
+
+### 2026-10-28 编译版「无 WebView2 子进程」定位并修复
+
+- **症状**：同一台机器、同一份源码 —— 解释器跑正常（笔记窗渲染、6 个 WebView2 子进程）；
+  编译版进程驻留、也能看到「提示」小窗，但 **0 个 `msedgewebview2`、无业务窗口内容、
+  `_error.log` 零新增**。
+- **根因**：项目所在的 `D:\...\02-GitHubFiles\` 目录带 **Low 完整性标签**，`SevenWork.exe`
+  继承后进程以 **Low IL（4096）** 启动，而 `%AppData%` / `%LocalAppData%` 是 Medium ——
+  写入全被拒。`LogError` 因此静默失败（这就是「日志为空」），WebView2 创建返回
+  `0x800700AA 请求的资源在使用中`（这就是「无子进程」）。
+  ⚠ 与「换过地址」的关系：不是路径本身，而是新目录的完整性标签。
+- **修复**：管理员执行
+  `icacls "D:\03-PersonalFiles\02-GitHubFiles" /setintegritylevel (OI)(CI)Medium /T`
+  —— `02-GitHubFiles` 与 `01-my-projects` 两层都已改，递归覆盖全部子项；目录 / exe 全部回到 Medium。
+- **换位置连带体检**（2026-10-28）：无旧仓库副本；无启动项 / 计划任务指向旧路径；
+  git remote 已是更名后的 `SevenWork-AutoHotKey.git`；`_config.ini` 里 Vault / 文件槽位 /
+  应用槽位路径**全部存在**；`.vscode/settings.json` 的 `helpPath` 原指向不存在的
+  `C:\Program Files\AutoHotkey\v2`（已改为 `D:/02-Apps/AutoHotkey/v2/AutoHotkey.chm`）；
+  仓库内多出一个**空的同名嵌套目录** `SevenWork-AutoHotKey\SevenWork-AutoHotKey`（已删）。
+- 验证：编译版进程 `IL=8192`、`webview2 owned=12`、`log_delta=0`、`Alt+Shift+S` 正常退出；
+  AHK 109 + web 17 全绿；`check-docs` 退出码 0。
+- 诊断用的 `TraceStartup` 埋点已**全部移除**（含另一会话加的那一版），`src\` 无 `_trace*` 残留。
+
+### 2026-10-28 版本 2.17 与分发提示
+
+- **版本号 2.15 → 2.17**：追平 `docs/EXPERIENCE.md` 里已经使用的 v2.16 / v2.17 ——
+  那两条行为（删分隔线热键、笔记热键收窄到 `editor`）早已落地，只是 `Config.Version`
+  没跟上。README 徽章同步。（`check-docs`：`PASS 2.17 (README badge == Config.Version)`）
+- **`tools/build.ps1` 去掉 `/compress`**：实测 `Ahk2Exe` 的 `/compress 1`、`/compress 2`
+  与不传参数产物**都是 1,523,200 字节**（AutoHotkey v2 x64 base），该参数在本机没有任何
+  效果；留着只会让人以为它有用。`BUILD.txt` 增加 `sha256=` 与 `signed=no` 两行，便于分发核对。
+- **README 增加「第一次运行被拦下（SmartScreen）」**：说清这是「无签名 + 无下载声誉」，
+  与文件损坏 / 压缩壳 / 编译方式无关，**重编译不会让它消失**；给出放行与哈希校验步骤。
+  （实测：本机编译、`MOTW=False` 的 exe 同样弹「无法验证发布者」；每次重新编译哈希变化后
+  提示会再来一次 —— 日常自用建议直接双击源码 `SevenWork.ahk`，编译版只用于分发）
+- 验证范围：AHK 109 + web 17 全绿（`=== TESTS PASSED ===`，退出码 0）；`check-docs`
+  全部通过；编译版 2.17 真机启动 6 秒未退出、`_error.log` 无新增、`Alt+Shift+S` 正常退出；
+  `dist\SevenWork-2.17-portable.zip` 11 个条目（含 `web\dist\index.html`）；
+  `SevenWork.exe` SHA256 `B78BDFB5…D57C386`。
+- **未做**：v2.17 Release 没有发布（README 的发布链接仍指 `v2.15-portable`）；代码签名未做。
 
 ### 2026-10-26 应用槽位唤回修复
 
@@ -150,7 +192,9 @@ Esc、日期窗开/关、提示词新建/关闭、`Alt+Shift+S` 退出）通过�
 | **提示词白屏** | 已确认页面加载正常（`__swprompt` 存在、正文 105 字）；旧版是 WebView2 子窗口不可见。新代码 `promptVisible=1`，待用户重启目视 |
 | **旧配置项** | `[Paths] DeepSeekW/H` 不再读取；`[Folders]` / `[Apps]` 新增 `SlotNZone`，缺省分别工作区 / 辅助区 |
 | **笔记字体 / 频闪** | 字重与空行已修；楷体 16pt 是否合意、打字是否还闪仍需目视 |
-| **分发未验收** | `web/dist` 入库可用，但运行时打包、跨机器首次运行都没试过 |
+| **分发未验收** | `web/dist` 入库可用；本机编译版 2.17 的启动 / 退出已验（2026-10-28），跨机器与干净机器首次运行仍未验收 |
+| **未签名 → 首次运行被拦** | SmartScreen /「无法验证发布者」按签名与下载声誉判定，**重编译无效**（每次重编哈希变化，提示还会再来）；日常自用跑源码，分发需代码签名（见 README 新小节） |
+| **目录完整性标签** | 项目若再落到 Low IL 目录（`02-GitHubFiles` 就是），编译版会重演「无日志 + 无 WebView2」；换目录 / 构建前先 `icacls` 看 `Mandatory Label` |
 
 ## 试过但没通（别重试，除非有新证据）
 
@@ -169,3 +213,4 @@ Esc、日期窗开/关、提示词新建/关闭、`Alt+Shift+S` 退出）通过�
    （不再新开窗口 / 新进程）；再按一次应把它收起。
 3. 换小屏 / 换缩放验辅助区高度与最大化窗口落区。
 4. 一键启动若要落地，先解决异步启动模型（串行会占住热键线程）。
+5. 若要对外发 2.17：先做代码签名（否则每台机器首次运行都会被拦），再推 Release。
