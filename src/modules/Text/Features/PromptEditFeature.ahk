@@ -93,16 +93,20 @@ class PromptEditFeature {
             this._SetCatText(StrReplace(item.category, "\", "/"))
             this._body.Value  := item.text
             this._del.Enabled := true
-            this._gui.Title   := Config.AppName . " · 编辑提示词"
+            this._gui.Title   := Config.AppName . " · " . (PromptStoreService.Lib = "skills" ? "编辑 Skill" : "编辑提示词")
         } else {
             this._title.Value := ""
             this._SetCatText(this._lastCat)
             this._body.Value  := ""
             this._del.Enabled := false
-            this._gui.Title   := Config.AppName . " · 新建提示词"
+            this._gui.Title   := Config.AppName . " · " . (PromptStoreService.Lib = "skills" ? "新建 Skill" : "新建提示词")
         }
 
-        this._gui.Show("w520 h480")
+        this._gui.Show("w520 h480 Hide")
+        if !ZoneService.CenterIn(this.Hwnd(), "aux")
+            this._gui.Show("w520 h480")
+        else
+            this._gui.Show()
         try WinActivate("ahk_id " . this.Hwnd())
         try this._title.Focus()
 
@@ -172,7 +176,11 @@ class PromptEditFeature {
         if !IsObject(this._gui)
             return
         try {
-            this._gui.Show("w520 h480")
+            this._gui.Show("w520 h480 Hide")
+            if !ZoneService.CenterIn(this.Hwnd(), "aux")
+                this._gui.Show("w520 h480")
+            else
+                this._gui.Show()
             WinActivate("ahk_id " . this.Hwnd())
         }
     }
@@ -205,10 +213,12 @@ class PromptEditFeature {
         g.BackColor := p.win
         g.SetFont("s11", "楷体")
 
-        g.AddText("x12 y16 w44 h20", "标题")
-        this._title := g.AddEdit("x60 y12 w448 h24")
+        lblT := g.AddText("x12 y16 w44 h20", "标题")
+        lblT.SetFont("s11 c" . p.text, "楷体")
+        this._title := g.AddEdit("x60 y12 w448 h24 +Border")
 
-        g.AddText("x12 y48 w44 h20", "分类")
+        lblC := g.AddText("x12 y48 w44 h20", "分类")
+        lblC.SetFont("s11 c" . p.text, "楷体")
         ; 可编辑下拉 = 「选」+「输」两全：列表列出 ListCategories() 的全部目录
         ; （含空目录、含 Code/代码审查 这种多级），用户也可直接敲新分类，
         ; Save() 里 SanitizeCategory + DirCreate 会自动建目录。
@@ -218,8 +228,8 @@ class PromptEditFeature {
 
         ; +Multi：多行；+VScroll：内容长了能滚；+WantReturn：Enter 在正文里换行，
         ; 不会跑去点「保存」（这个窗口激活时主窗口的 Enter 热键本来也不生效）
-        this._body := g.AddEdit("x12 y80 w496 h326 +Multi +VScroll +WantReturn")
-        this._body.SetFont("s11", "楷体")
+        this._body := g.AddEdit("x12 y80 w496 h326 +Multi +VScroll +WantReturn +Border")
+        this._body.SetFont("s12", "Microsoft YaHei")
 
         ; 提示行兼作「删除待确认 / 保存失败」的提示位，所以宽度给足（w420）
         this._hint := g.AddText("x12 y416 w420 h20", "分类可从列表选，也可手输（多级：Work/会议）")
@@ -248,9 +258,9 @@ class PromptEditFeature {
         UiPaint.Glass(g.Hwnd, p.style, p.win)
         ; 三个输入控件：Edit / ComboBox 都不吃 BackColor，走 WM_CTLCOLOREDIT 登记
         ; （ComboBox 的输入区与下拉列表分别发 0x0133 / 0x0134，同一份登记够用）
-        UiPaint.EditColors(this._title.Hwnd, p.codeBg, p.text)
-        UiPaint.EditColors(this._cat.Hwnd, p.codeBg, p.text)
-        UiPaint.EditColors(this._body.Hwnd, p.codeBg, p.text)
+        UiPaint.EditColors(this._title.Hwnd, p.dark ? "454545" : "FFFFFF", p.text)
+        UiPaint.EditColors(this._cat.Hwnd, p.dark ? "454545" : "FFFFFF", p.text)
+        UiPaint.EditColors(this._body.Hwnd, p.dark ? "454545" : "FFFFFF", p.text)
     }
 
     ; 换主题（Alt+T）：整窗重刷。窗口没建 / 已销毁就直接返回 ——
@@ -263,9 +273,9 @@ class PromptEditFeature {
         try this._gui.BackColor := p.win
         UiPaint.TitleBar(hwnd, p.win, p.text)
         UiPaint.WindowTheme(hwnd, p.dark)
-        try UiPaint.EditColors(this._title.Hwnd, p.codeBg, p.text)
-        try UiPaint.EditColors(this._cat.Hwnd, p.codeBg, p.text)
-        try UiPaint.EditColors(this._body.Hwnd, p.codeBg, p.text)
+        try UiPaint.EditColors(this._title.Hwnd, p.dark ? "454545" : "FFFFFF", p.text)
+        try UiPaint.EditColors(this._cat.Hwnd, p.dark ? "454545" : "FFFFFF", p.text)
+        try UiPaint.EditColors(this._body.Hwnd, p.dark ? "454545" : "FFFFFF", p.text)
         ; 提示行可能正停在"确认删除"（红字）状态：_ResetDelete 会把它写回常规措辞 + dim
         this._ResetDelete()
     }

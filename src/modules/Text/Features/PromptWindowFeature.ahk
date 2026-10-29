@@ -97,7 +97,7 @@ class PromptWindowFeature {
         if !PromptStoreService.SetLib(lib)
             return false
         this._focusId := ""
-        this._Pull()
+        ; Do NOT Eval the page here (hostObjects callback) - page reloads itself.
         return true
     }
 

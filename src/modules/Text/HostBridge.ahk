@@ -78,6 +78,7 @@ PromptHostHandlers() {
         copy:     PromptHostCopy,
         edit:     PromptHostEdit,
         switchLib: PromptHostSwitchLib,
+        getLib:   PromptHostLib,
         close:    PromptHostClose,
         log:      PromptHostLog
     }
