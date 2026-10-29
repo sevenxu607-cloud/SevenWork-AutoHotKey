@@ -6,6 +6,8 @@ import {
   copyPrompt,
   editPrompt,
   fetchPrompts,
+  getLib,
+  switchLib,
   logPrompt,
   type PromptData,
   type PromptItem,
@@ -32,6 +34,17 @@ const status = ref('')
 const loading = ref(false)
 /** 真机上拉取失败 —— 与「目录里本来就没有提示词」是两回事，列表区要分开说 */
 const loadFailed = ref(false)
+const lib = ref('prompts')
+
+async function doSwitch(id: string) {
+  if (id === lib.value) return
+  const r = await switchLib(id)
+  if (r !== 'ok') return
+  lib.value = id
+  sel.value = ''
+  kw.value = ''
+  await load()
+}
 const searchRef = ref<HTMLInputElement | null>(null)
 let statusTimer = 0
 
@@ -202,6 +215,7 @@ async function doEdit(it: PromptItem | null) {
    ⚠ 主题要在页面这边再拉一次：AHK 建窗时推过一次，但那时页面还没就绪
    （见 WebWindow.ApplyTheme 的注释）。 */
 onMounted(async () => {
+  lib.value = await getLib()
   await load(true)
   if (!hosted) return
   try {
@@ -217,6 +231,8 @@ onMounted(async () => {
   <!-- ↑↓ 绑在根上：焦点在搜索框时也能移动列表选中（AHK 没给这两个键注册热键） -->
   <div class="pv" @keydown.down.prevent="move(1)" @keydown.up.prevent="move(-1)">
     <div class="pv-tool">
+      <button class="pv-tab" :class="{ on: lib === 'prompts' }" type="button" @click="doSwitch('prompts')">提示词</button>
+      <button class="pv-tab" :class="{ on: lib === 'skills' }" type="button" @click="doSwitch('skills')">Skill</button>
       <input
         ref="searchRef"
         v-model="kw"

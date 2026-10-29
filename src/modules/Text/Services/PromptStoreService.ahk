@@ -36,7 +36,9 @@ class PromptStoreService {
     static _cache := ""
 
     ; ─── 路径 ───
-    static Root() => Config.GetPromptsDir()
+    static Lib := "prompts"
+
+    static Root() => (this.Lib = "skills" ? Config.GetSkillsDir() : Config.GetPromptsDir())
 
     ; ─── 首次运行：建根目录 + 播种三个顶层分类 ───
     ; 在模块 Init() 里调用（只碰磁盘，不碰窗口，符合「Init 只做内部就绪」的约定）。
@@ -45,6 +47,15 @@ class PromptStoreService {
         try DirCreate(root)
         for name in this.SeedDirs
             try DirCreate(root . "\" . name)
+    }
+
+    static SetLib(lib) {
+        if (lib != "prompts" && lib != "skills")
+            return false
+        this.Lib := lib
+        this._cache := ""
+        this.EnsureRoot()
+        return true
     }
 
     ; ═══ 读取 ═══

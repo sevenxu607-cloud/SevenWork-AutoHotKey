@@ -19,6 +19,10 @@ exe + `web\dist` + `WebView2Loader.dll` 的 staging / ZIP；Pandoc 已从启动
 
 ## 已完成（括号内是验证范围）
 
+### 2026-10-28 文本库双库（提示词 / Skill）
+
+- 已实现：Alt+P 单窗口双 Tab；数据在 `_prompts` / `_skills`（跟随笔记库）。
+
 ### 2026-10-28 编译版「无 WebView2 子进程」定位并修复
 
 - **症状**：同一台机器、同一份源码 —— 解释器跑正常（笔记窗渲染、6 个 WebView2 子进程）；

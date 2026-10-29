@@ -20,6 +20,8 @@
 
 PromptHostPing() => "pong"
 
+PromptHostLib() => PromptStoreService.Lib
+
 ; 整份数据一次取完：全部条目 + 分类目录 + 首屏要定位的那一条。
 ;
 ; force = "1" 时忽略 PromptStoreService 的缓存重扫 —— 页面每次打开 / F5 都传 1，
@@ -50,6 +52,10 @@ PromptHostEdit(path) {
 }
 
 ; 前端请求关窗（Esc 之外的第二条路：按钮 / 收窗动作）
+PromptHostSwitchLib(lib) {
+    return PromptWindowFeature.SetLib(lib) ? "ok" : "err:unknown-lib"
+}
+
 PromptHostClose() {
     PromptWindowFeature.Hide()
     return "ok"
@@ -71,6 +77,7 @@ PromptHostHandlers() {
         data:     PromptHostData,
         copy:     PromptHostCopy,
         edit:     PromptHostEdit,
+        switchLib: PromptHostSwitchLib,
         close:    PromptHostClose,
         log:      PromptHostLog
     }

@@ -93,6 +93,14 @@ class PromptWindowFeature {
     ; 编辑窗保存 / 删除之后要回到的那一条（页面拉数据时读它）
     static FocusId() => this._focusId
 
+    static SetLib(lib) {
+        if !PromptStoreService.SetLib(lib)
+            return false
+        this._focusId := ""
+        this._Pull()
+        return true
+    }
+
     ; path 为空 = 只重拉不定位（删除之后那一条已经没了）
     static FocusPath(path) {
         this._focusId := ("" . path)

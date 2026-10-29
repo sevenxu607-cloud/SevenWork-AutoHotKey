@@ -23,6 +23,8 @@ class PromptEditFeature {
 
     ; 新建时预填的分类（上次保存用过的那个）。只放内存 —— 重启回落到「未分类」，
     ; 不为一个便利值去动 Config（Kernel 冻结区）。
+    static _lib := ""
+
     static _lastCat := ""
 
     ; 打开时记下的内容基线（标题 / 分类 / 正文）。
@@ -62,6 +64,7 @@ class PromptEditFeature {
 
     ; item = ""（新建）或 PromptStoreService.LoadAll() 里的一项
     static Open(item := "") {
+        this._lib := PromptStoreService.Lib
         ; 任何控件失效 / 旧句柄 / 分类下拉异常都转成明确的 false，
         ; 不让异常穿到 hostObjects 调用栈里，变成前端一句看不懂的 TypeError。
         try
@@ -299,7 +302,11 @@ class PromptEditFeature {
             return
         oldPath := IsObject(this._editing) ? this._editing.path : ""
         catText := this._GetCatText()
+        prevLib := PromptStoreService.Lib
+        if (this._lib != "" && this._lib != prevLib)
+            PromptStoreService.Lib := this._lib
         res := PromptStoreService.Save(catText, this._title.Value, this._body.Value, oldPath)
+        PromptStoreService.Lib := prevLib
         if !res.ok {
             this._ShowError(res)
             return

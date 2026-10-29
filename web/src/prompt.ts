@@ -63,3 +63,18 @@ export async function logPrompt(msg: string): Promise<void> {
     /* 日志本身失败就算了 —— 别再抛出去把调用点带崩 */
   }
 }
+
+/** Current lib: prompts | skills. */
+export async function getLib(): Promise<string> {
+  if (!isHosted()) return 'prompts'
+  try {
+    return String(await ahkCall<string>('getLib'))
+  } catch {
+    return 'prompts'
+  }
+}
+
+/** Switch lib (Tab). Returns ok | err. */
+export async function switchLib(lib: string): Promise<string> {
+  return String(await ahkCall<string>('switchLib', lib))
+}
