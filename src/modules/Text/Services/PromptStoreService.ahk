@@ -45,6 +45,8 @@ class PromptStoreService {
     static EnsureRoot() {
         root := this.Root()
         try DirCreate(root)
+        if (this.Lib != "prompts")
+            return
         for name in this.SeedDirs
             try DirCreate(root . "\" . name)
     }
