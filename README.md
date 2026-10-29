@@ -8,7 +8,7 @@
 后台是 AutoHotkey v2（管窗口、热键、磁盘、进程），前台是 WebView2 里的 Vue + Milkdown。
 **记下来的东西都是普通文件**：笔记就是 `.md`，直接落在你自己的 Obsidian 库里。
 
-![version](https://img.shields.io/badge/version-2.17-blue)
+![version](https://img.shields.io/badge/version-2.18-blue)
 ![platform](https://img.shields.io/badge/platform-Windows%2010%2F11%20x64-lightgrey)
 ![language](https://img.shields.io/badge/language-AutoHotkey%20v2-green)
 ![license](https://img.shields.io/badge/license-MIT-orange)
@@ -78,7 +78,7 @@ LICENSE / README / THIRD-PARTY-NOTICES.txt
 BUILD.txt
 ```
 
-已发布：[SevenWork v2.17-portable](https://github.com/sevenxu607-cloud/SevenWork-AutoHotKey/releases/tag/v2.17-portable)
+已发布：[SevenWork v2.18-portable](https://github.com/sevenxu607-cloud/SevenWork-AutoHotKey/releases/tag/v2.18-portable)
 
 ### 第一次运行被拦下（SmartScreen）
 
