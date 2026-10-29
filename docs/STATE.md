@@ -9,6 +9,8 @@
 
 ## 当前焦点
 
+- 2026-10-28：v2.18-portable 已发布（含应用图标与 Skill 库）。
+
 七个核心应用与三区域已完成并验证；演示录制链路可自动跑通。
 **2026-10-25 起转为 portable 编译分发**：`tools\build.ps1` 已能生成
 exe + `web\dist` + `WebView2Loader.dll` 的 staging / ZIP；Pandoc 已从启动
