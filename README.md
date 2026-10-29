@@ -72,6 +72,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File tools\build.ps1
 ```text
 SevenWork.exe
 WebView2Loader.dll
+assets\icon\SevenWork.ico
 web\dist\...
 LICENSE / README / THIRD-PARTY-NOTICES.txt
 BUILD.txt

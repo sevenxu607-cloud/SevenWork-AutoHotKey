@@ -400,6 +400,18 @@ HotkeyRouter.RegisterAll()
 ; 必须晚于热键注册：否则窗口先露面、热键还没就位，按 Alt+Z 会「没反应」。
 ModuleRegistry.StartAll()
 
+; ═══ 图标：托盘用与 exe 同一枚（assets\icon\SevenWork.ico 随包分发）═══
+; 图标只是观感，缺了不该挡住启动 —— 因此 try 掉；找不到就保持 AHK 默认图标。
+; ⚠ 三个入口的 A_ScriptDir 不同：根启动器 = 仓库根、编译版 = staging、直接跑
+;   src\SevenWork.ahk = src。只写 A_ScriptDir 会让第三种入口静默丢图标。
+for iconPath in [A_ScriptDir . "\assets\icon\SevenWork.ico"
+    , A_ScriptDir . "\..\assets\icon\SevenWork.ico"] {
+    if FileExist(iconPath) {
+        try TraySetIcon(iconPath)
+        break
+    }
+}
+
 ShowStartupTip()
 
 

@@ -57,7 +57,12 @@ exe + `web\dist` + `WebView2Loader.dll` 的 staging / ZIP；Pandoc 已从启动
   全部通过；编译版 2.17 真机启动 6 秒未退出、`_error.log` 无新增、`Alt+Shift+S` 正常退出；
   `dist\SevenWork-2.17-portable.zip` 11 个条目（含 `web\dist\index.html`）；
   `SevenWork.exe` SHA256 `B78BDFB5…D57C386`。
-- **未做**：v2.17 Release 没有发布（README 的发布链接仍指 `v2.15-portable`）；代码签名未做。
+- **应用图标**：`assets\icon\SevenWork.ico` 同时做两件事 —— exe 文件图标（`/icon` 传给 Ahk2Exe）
+  与运行期托盘图标（`TraySetIcon`）；构建时把 `assets\icon\` 复制进 staging，随包分发。
+  托盘图标走候选路径，兼容「根启动器 / 编译版 / 直接跑 src」三种 A_ScriptDir。
+  （验证：exe 1,523,200 → 1,577,472 字节；编译版 IL=8192、webview2=8、log_delta=0、正常退出）
+- **v2.17 Release 已发布**（2026-10-28）：`v2.17-portable`，含 zip 与中文说明；README 链接已同步。
+  代码签名仍未做。
 
 ### 2026-10-26 应用槽位唤回修复
 

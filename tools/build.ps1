@@ -18,15 +18,20 @@
 
 param(
     [switch]$SkipWebBuild,
-    [switch]$NoZip
+    [switch]$NoZip,
+    # Optional staging folder name under dist\. Default "SevenWork".
+    # Needed when the previous build's folder is still locked by a running
+    # instance or a shell sitting inside it (Remove-Item fails otherwise).
+    [string]$StageName = 'SevenWork'
 )
 
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $web = Join-Path $root 'web'
 $webDist = Join-Path $web 'dist'
-$stage = Join-Path $root 'dist\SevenWork'
+$stage = Join-Path $root ("dist\" + $StageName)
 $source = Join-Path $root 'SevenWork.ahk'
+$icon = Join-Path $root 'assets\icon\SevenWork.ico'
 $loader = Join-Path $root 'src\lib\WebView2\64bit\WebView2Loader.dll'
 $config = Join-Path $root 'src\WorkBench\Kernel\Config.ahk'
 
@@ -66,6 +71,10 @@ if (-not (Test-Path -LiteralPath (Join-Path $webDist 'index.html'))) {
     throw "web/dist/index.html not found: $webDist"
 }
 
+if (-not (Test-Path -LiteralPath $icon)) {
+    throw "app icon not found: $icon (expected assets\icon\SevenWork.ico in the repo)"
+}
+
 if (Test-Path -LiteralPath $stage) { Remove-Item -LiteralPath $stage -Recurse -Force }
 New-Item -ItemType Directory -Force -Path $stage | Out-Null
 
@@ -79,6 +88,7 @@ $compileArgs = @(
     '/in', ('"' + $source + '"'),
     '/out', ('"' + $exe + '"'),
     '/base', ('"' + $ahkBase + '"'),
+    '/icon', ('"' + $icon + '"'),
     '/silent'
 )
 $proc = Start-Process -FilePath $ahk2exe -ArgumentList $compileArgs -Wait -PassThru -NoNewWindow
@@ -88,6 +98,12 @@ if (-not (Test-Path -LiteralPath $exe)) { throw "compiled exe not found: $exe" }
 New-Item -ItemType Directory -Force -Path (Join-Path $stage 'web\dist') | Out-Null
 Copy-Item -Path (Join-Path $webDist '*') -Destination (Join-Path $stage 'web\dist') -Recurse -Force
 Copy-Item -LiteralPath $loader -Destination (Join-Path $stage 'WebView2Loader.dll') -Force
+
+# Runtime tray icon: SevenWork.ahk calls TraySetIcon(A_ScriptDir "\assets\icon\SevenWork.ico"),
+# so the icon has to travel with the exe, not stay in the repo.
+$iconStage = Join-Path $stage 'assets\icon'
+New-Item -ItemType Directory -Force -Path $iconStage | Out-Null
+Copy-Item -LiteralPath $icon -Destination (Join-Path $iconStage 'SevenWork.ico') -Force
 Copy-Item -LiteralPath (Join-Path $root 'LICENSE') -Destination (Join-Path $stage 'LICENSE') -Force
 $readme = Join-Path $root 'README.md'
 if (Test-Path -LiteralPath $readme) {
